@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<style>
+    body {
+        height: 100vh;
+        /* xoa khoang trong tren duoi phai trai trong body  */
+        margin: 0;
+
+        background-image: url(background.png);
+        /* bao phu anh toan bo body */
+        background-size: cover;
+        /* vi tri background trong body */
+        background-position: bottom; 
+        background-repeat: no-repeat; /*khong lap lai anh*/
+        background-attachment: fixed;  /* Giữ ảnh nền cố định khi cuộn trang (tùy chọn) */
+
+        display : block; 
+    }
+    .container {
+
+        border-style: dashed;
+        border-width: 1px;
+
+        width: 95%;
+        height: 89%;
+
+        display: grid;
+        grid-template-areas: "loginmain widget" "input empty";
+
+        grid-template-columns: 1.3fr 1fr;
+        grid-template-rows: 1fr 1fr;
+    }
+            .container .logincontainer {
+                border-style: dashed;
+                border-width: 1px;
+
+                grid-area: loginmain;
+
+                margin: 10px;
+
+                display: grid;
+
+                background-color: white;
+                border-radius: 20px;
+
+                grid-template-areas: "logoarea" "idarea" "buttonarea";
+                grid-template-rows: 1fr 1.2fr 1fr;
+            }
+
+                img.logo {
+                    border-style: dashed;
+                    border-width: 1px;
+                    width: 60%;
+                    justify-self: center;
+                    align-self: center;
+                    grid-area: logoarea;
+
+
+
+                }
+
+                .container  .logincontainer .idclass {
+                    border-style: dashed;
+                    border-width: 1px;
+
+                    grid-area: idarea;
+                    
+                    display: grid;
+
+                    grid-template-columns: 1fr 3fr; 
+                    grid-template-rows: 1fr 1fr; 
+
+
+                }
+                        .container .logincontainer .idclass .idtext, 
+                        .container .logincontainer .idclass .passtext {
+                             border-style: dashed;
+                            border-width: 1px;
+                            align-self: center;
+                            justify-self: right;
+                        
+                        }
+                        .container .logincontainer .idclass input.id, 
+                        .container .logincontainer .idclass input.pass {
+                            width: 90%;
+                            height: 50%;
+                            align-self: center;
+                            justify-self:center; 
+                            border-radius: 10px;
+
+                            font-size: 24px;
+
+                        }
+
+
+                .container .logincontainer .buttonclass{
+                    border-style: dashed;
+                    border-width: 1px;
+
+                    grid-area: buttonarea;
+
+
+                }
+            .container .inputcontainer {
+                border-style: dashed;
+                border-width: 1px;
+
+                grid-area: input;
+
+            }
+            .container .widgetcontainer {
+                border-style: dashed;
+                border-width: 1px;
+
+                grid-area: widget;
+            }
+
+
+
+
+</style>
+<body>
+    <div class="container">
+        <div class="logincontainer">
+            <img src="logo.png" class="logo" alt="">
+            <div class="idclass"> 
+                <div class="idtext">Mã Nhân Viên</div>
+                <input type="text" class="id">
+                <div class="passtext">Mật khẩu</div>
+                <input type="text" class="pass">
+            </div>
+            <div class="buttonclass"></div>
+        </div>
+        <div class="inputcontainer">
+            
+        </div>
+        <div class="widgetcontainer">
+
+        </div>
+    </div>
+</body>
+</html> 

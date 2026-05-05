@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/pos_db;auto_server=true
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  
+  sql:
+    init:
+      mode: always # Bắt buộc phải có để chạy schema.sql và data.sql
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    defer-datasource-initialization: true # DÒNG QUAN TRỌNG NHẤT: Bắt buộc chạy data.sql sau khi tạo bảng
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
