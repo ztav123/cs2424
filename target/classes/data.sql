@@ -6,3 +6,6 @@ INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (367, 'Bú s�
 
 insert into NHANVIEN values (67, 'Nguyen Phu Quoc', '0365931022', 'Dong Nai', '2025-02-24', '123'); 
 insert into NHANVIEN values (36, 'Peter Lam', '0365122167', 'Cali', '2025-02-23', '1'); 
+
+INSERT INTO QUANLY (id, hoten, mkdangnhap) 
+VALUES (999999, 'Trần Quản Lý', '123456');

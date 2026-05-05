@@ -220,7 +220,7 @@
                         <span>🚪</span>
                         <span>Kết ca</span>
                     </button>
-                    <div class="action-icon"><span>⚙️</span><span>Hỗ trợ</span></div>
+                    <div class="action-icon" id="btn-thoat"><span>⚙️</span><span>Thoát</span></div>
                 </div>
                 <div class="datetime" id="live-clock">Đang tải...</div>
             </div>
@@ -298,7 +298,6 @@
                     </div>
 
                 <div class="product-actions">
-                    <button class="btn-detail">Chi tiết</button>
                     <button class="btn-add">Thêm</button>
                 </div>
             </div>
@@ -390,7 +389,9 @@
     </div>
 
 <script>
-    // --- LOGIC KẾT CA (MỚI THÊM) ---
+    document.getElementById('btn-thoat').addEventListener('click', function() {
+        window.location.href = 'TienIchNhanVien.html';
+    });
     // --- LOGIC KẾT CA (MỚI THÊM) ---
     document.getElementById('btn-ket-ca').addEventListener('click', function() {
         // Gắn cờ bàn giao vào localStorage
@@ -493,13 +494,71 @@
         }
         updateCartTotal();
     }
+    //logic input san pham vao cảt
 
-    const searchInput = document.getElementById('barcode-scanner');
-    searchInput.addEventListener('keypress', function(event) {
-        if (event.key === 'Enter') {
-            event.preventDefault(); addToInvoice(searchInput.value.trim()); searchInput.value = ''; 
+// 1. Chọn các phần tử button
+const doneBtn = document.querySelector('.close-btn');
+const addBtn = document.querySelector('.btn-add');
+const searchInput = document.getElementById('barcode-scanner');
+
+// 2. Logic cho nút "Thêm" (btn-add)
+// Khi click hoặc nhấn Enter trên nút này, nó sẽ lấy giá trị từ ô input để thêm sản phẩm
+const handleManualAdd = () => {
+    const value = searchInput.value.trim();
+    if (value) {
+        addToInvoice(value);
+        searchInput.value = ''; // Xóa trắng ô nhập
+        searchInput.focus();    // Đưa con trỏ chuột lại ô nhập
+    } else {
+        alert("Vui lòng nhập mã sản phẩm hoặc quét mã!");
+    }
+};
+
+addBtn.addEventListener('click', handleManualAdd);
+addBtn.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        handleManualAdd();
+    }
+});
+
+// 3. Logic cho nút "Done" (close-btn)
+// Thường dùng để kết thúc hóa đơn hoặc thanh toán
+const handleFinishInvoice = () => {
+    if (currentCartTotal === 0) {
+        alert("Giỏ hàng đang trống!");
+        return;
+    }
+    
+    const total = updateCartTotal();
+    alert(`Xác nhận thanh toán: ${total.toLocaleString('vi-VN')} VNĐ`);
+    
+    // Sau khi "Done", thường sẽ xóa giỏ hàng để làm đơn mới
+    clearCart();
+};
+
+doneBtn.addEventListener('click', handleFinishInvoice);
+doneBtn.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        handleFinishInvoice();
+    }
+});
+
+// 4. Giữ nguyên logic Enter trực tiếp từ ô input để gõ cho nhanh
+searchInput.addEventListener('keypress', function(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        const value = searchInput.value.trim();
+        if (value) {
+            addToInvoice(value);
+            searchInput.value = '';
         }
-    });
+    }
+});
+
+// 5. Logic click chọn sản phẩm từ danh sách (Grid)
+
 
     productGrid.addEventListener('click', function(event) {
         const card = event.target.closest('.product-card');
@@ -619,10 +678,12 @@
     const numpadPopup = document.getElementById('numpad-popup');
     const numButtons = document.querySelectorAll('.n-btn');
 
-    // 1. Hiện Numpad khi focus vào input
-    searchInput.addEventListener('focus', () => {
+    // 1. Hiện Numpad khi focus click vào input
+    const showNumpad = () => {
         numpadPopup.classList.add('show');
-    });
+    };
+    searchInput.addEventListener('focus', showNumpad);
+    searchInput.addEventListener('click', showNumpad);
 
     // 2. Xử lý nhập liệu
     numButtons.forEach(button => {

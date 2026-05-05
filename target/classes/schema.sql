@@ -1,5 +1,5 @@
 -- Nên thêm DROP TABLE để khi chạy lại script không bị lỗi tồn tại bảng
-drop table if exists KETCA_LOG, THANHTOAN, CTHD, KHO, HOADON, KHACHHANG, SANPHAM, VOUCHER, CALAM, NHANVIEN;
+drop table if exists QUANLY, KETCA_LOG, THANHTOAN, CTHD, KHO, HOADON, KHACHHANG, SANPHAM, VOUCHER, CALAM, NHANVIEN;
 
 create table NHANVIEN (
     id int primary key,
@@ -81,6 +81,12 @@ create table KETCA_LOG (
     tiennganhang int,
     tongtien int,
     foreign key(nhanvien_id) references NHANVIEN(id)
+);
+-- Tạo bảng riêng cho Quản lý
+create table QUANLY (
+    id int primary key,
+    hoten varchar(50),
+    mkdangnhap varchar(255)
 );
 
 -- Khóa ngoại (Giữ nguyên logic của bạn nhưng chuẩn hóa tên cột)

@@ -56,7 +56,7 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            padding: 5% 8%;
+            padding: 12px 36px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.03);
         }
 
@@ -64,7 +64,6 @@
             display: flex;
             justify-content: center;
             height: 25%;
-            margin-bottom: 5%;
         }
 
         .logo-container img {
@@ -76,7 +75,7 @@
         .input-group {
             display: flex;
             align-items: center;
-            margin-bottom: 5%;
+            margin-bottom: 5px;
             gap: 15px;
         }
 
@@ -89,14 +88,13 @@
 
         .input-group input {
            /* Input tự co giãn lấp đầy chỗ trống */
-            padding: 3% 4%;
+            padding: 12px 36px;
             border: 2px solid #ddd;
             border-radius: 8px;
             font-size: 1.2rem;
             outline: none;
             transition: border-color 0.3s;
             width: 70%;
-            min-width: none;
         }
 
         .input-group input:focus {
@@ -384,25 +382,38 @@
     });
 
     // === 3. XỬ LÝ ĐĂNG NHẬP (TRƯỜNG HỢP 1 & 2) ===
+    // === ĐẶT CỜ CHẶN SPAM CHO NÚT ĐĂNG NHẬP ===
+    let isLoggingIn = false; 
+
     async function loginchecked() {
+        if (isLoggingIn) return; // Chặn spam click
+
         const getid = document.getElementById("ID").value; 
         const getpass = document.getElementById("Password").value; 
         
-        // Kéo dữ liệu trạng thái từ ổ cứng trình duyệt
         const oldId = localStorage.getItem('currentNhanVienId');
         const isHandover = localStorage.getItem('isHandover');
+        const verifyNhanVien2 = localStorage.getItem('verifyNhanVien2');
 
-        // [TRƯỜNG HỢP 2]: Chặn nhân viên đang trực tự đăng nhập lại chính mình
         if (isHandover === 'true' && oldId === getid) {
             document.getElementById("loginresult").innerHTML = "Từ chối: Không thể chuyển ca cho chính mình!";
-            return; // Lệnh return này sẽ dừng hàm ngay lập tức, không cho gửi API xuống Server
+            return; 
         }
 
         try {
-            // [TRƯỜNG HỢP 1]: URL động, nếu có cờ chuyển ca thì kèm oldId để Server chốt ca
+            isLoggingIn = true; 
+            document.querySelector('.btn-login').style.opacity = "0.5"; 
+            document.getElementById("loginresult").innerHTML = "Đang xử lý...";
+
+            // Bổ sung tham số createShift để điều khiển Backend
             let url = `http://localhost:8080/api/auth/login?id=${getid}&password=${getpass}`;
+            
             if (isHandover === 'true' && oldId) {
-                url += `&oldId=${oldId}`;
+                // ĐĂNG NHẬP LẦN 1 (Uỷ quyền): Báo Backend KHÔNG tạo ca làm, chỉ check pass và tạo log nháp
+                url += `&oldId=${oldId}&createShift=false`; 
+            } else {
+                // ĐĂNG NHẬP LẦN 2 (Hoặc đăng nhập bình thường): Báo Backend TẠO ca làm mới
+                url += `&createShift=true`;
             }
 
             const response = await fetch(url, { method: 'POST' });
@@ -410,25 +421,38 @@
             if (response.ok) {
                 const userData = await response.json();
                 
-                // Đăng nhập thành công: Đè dữ liệu nhân viên mới lên
+                // KIỂM TRA ROLE ĐỂ RẼ NHÁNH
+                if (userData.role === 'QuanLy') {
+                    // Chặn nếu quản lý vô tình quét mã lúc máy POS đang chờ chuyển ca
+                    if (isHandover === 'true') {
+                        document.getElementById("loginresult").innerHTML = "Hệ thống đang chờ chuyển ca, Quản lý không thể đăng nhập!";
+                        return;
+                    }
+                    // Lưu thông tin quản lý (nếu cần) và điều hướng
+                    localStorage.setItem('currentQuanLyId', userData.id);
+                    localStorage.setItem('currentQuanLyName', userData.hoten);
+                    window.location.href = 'TienIchQuanLy.html';
+                    return; // Kết thúc hàm
+                }
+
+                // NẾU LÀ NHÂN VIÊN
                 localStorage.setItem('currentNhanVienId', userData.id);
                 localStorage.setItem('currentNhanVienName', userData.hoten);
                 
-                // Điều hướng dựa theo trạng thái
-                // Điều hướng dựa theo trạng thái
                 if (isHandover === 'true') {
-                    localStorage.setItem('handoverFromId', oldId); // THÊM DÒNG NÀY: Lưu lại người bàn giao
+                    localStorage.setItem('handoverFromId', oldId); 
                     localStorage.removeItem('isHandover'); 
                     window.location.href = 'KetCa.html';   
                 } else {
                     window.location.href = 'orderPage.html'; 
                 }
             } else {
-                // Sai mật khẩu hoặc ID không tồn tại
                 document.getElementById("loginresult").innerHTML = await response.text(); 
             }
         } catch (error) {
             document.getElementById("loginresult").innerHTML = "Lỗi kết nối máy chủ!";
+            isLoggingIn = false; 
+            document.querySelector('.btn-login').style.opacity = "1";
         }
     }
     //numpad input

@@ -2,17 +2,10 @@
     "configurations": [
         {
             "type": "java",
-            "name": "PosLauncher",
-            "request": "launch",
-            "mainClass": "com.pos.pos_system.PosLauncher",
-            "projectName": "pos-system"
-        },
-        {
-            "type": "java",
-            "name": "Spring Boot-PosSystemApplication<pos-system>",
+            "name": "Spring Boot-PosLauncher<pos-system>",
             "request": "launch",
             "cwd": "${workspaceFolder}",
-            "mainClass": "com.pos.pos_system.PosSystemApplication",
+            "mainClass": "com.pos.pos_system.PosLauncher",
             "projectName": "pos-system",
             "args": "",
             "envFile": "${workspaceFolder}/.env"

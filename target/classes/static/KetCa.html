@@ -273,10 +273,11 @@
                   const logcontainer = document.getElementById("log-container");
                   logcontainer.innerHTML = "";
                   
-                  // Lấy ID người đang giao ca để map dữ liệu
+                  // Lấy ID người đang giao ca (Nhân viên 1)
                   const handoverId = parseInt(localStorage.getItem('handoverFromId'));
 
                   dbData.forEach(log => {
+                     // HIỂN THỊ TẤT CẢ LOG TRONG NGÀY
                      const dateObj = new Date(log.thoigian);
                      const dateStr = dateObj.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -296,52 +297,83 @@
                      `;
                      logcontainer.appendChild(item);
 
-                     // Tự động bốc số tiền cần nộp của CA ĐANG BÀN GIAO lên panel bên trái
+                     // NHƯNG CHỈ bốc số tiền cần nộp của CA ĐANG BÀN GIAO lên panel bên trái
                      if (log.nhanVien.id === handoverId) {
-                         document.getElementById('expected-total').innerText = formatmoney(log.tiencannop-log.tiennganhang) + " đ";
+                         document.getElementById('expected-total').innerText = formatmoney(log.tiencannop - log.tiennganhang) + " đ";
                      }
                   });
                }
             } catch (error) { console.error("Lỗi tải log", error); }
          }
 
-         // 7. XỬ LÝ LƯU LOG THẬT KHI BẤM "IN BẢNG KÊ"
-         document.getElementById("btn-save-log").addEventListener("click", async () => {
-            const grandtotal = rowsdata.reduce((sum, row) => sum + row.total, 0);
+         // 7. XỬ LÝ LƯU LOG KHI BẤM "IN BẢNG KÊ" VÀ "XÁC NHẬN"
+         let isLogPrinted = false;
+         let isProcessing = false; // CỜ CHỐNG DOUBLE-CLICK (NGĂN TẠO 2 LOG)
+
+         document.getElementById("btn-save-log").addEventListener("click", async function() {
+            if (isProcessing) return; // Nếu đang chờ xử lý API thì chặn mọi click tiếp theo
             
-            // Gửi dữ liệu về người BÀN GIAO thay vì người đang đăng nhập mới
-            const handoverId = parseInt(localStorage.getItem('handoverFromId'));
-            if (!handoverId) return alert("Không tìm thấy thông tin ca làm việc!");
+            const handoverId = parseInt(localStorage.getItem('handoverFromId')); // ID Nhân viên 1
+            const currentNhanVienId = localStorage.getItem('currentNhanVienId'); // ID Nhân viên 2
 
-            const payload = {
-               nhanVienId: handoverId,
-               tienmat: grandtotal
-            };
+            if (!handoverId) return alert("Không tìm thấy thông tin Nhân viên ca trước!");
 
-            try {
-               const res = await fetch('http://localhost:8080/api/ketca/save-log', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(payload)
-               });
-               
-               if(res.ok) {
-                  alert("Chốt ca thành công! Chuyển sang màn hình bán hàng.");
-                  localStorage.removeItem('handoverFromId'); // Dọn dẹp cache
-                  window.location.href = 'orderPage.html';
-               } else {
-                  alert("Có lỗi xảy ra khi lưu bảng kê!");
-               }
-            } catch(e) {
-               alert("Lỗi kết nối máy chủ");
+            if (!isLogPrinted) {
+                isProcessing = true; // Bật cờ chặn spam click
+                this.style.opacity = "0.5"; // Làm mờ nút để nhân viên biết máy đang xử lý
+
+                // LẦN 1: BẤM IN BẢNG KÊ (Chỉ lưu cho Nhân viên 1)
+                const grandtotal = rowsdata.reduce((sum, row) => sum + row.total, 0);
+
+                const payload = {
+                   nhanVienId: handoverId, 
+                   tienmat: grandtotal
+                };
+
+                try {
+                   const res = await fetch('http://localhost:8080/api/ketca/save-log', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(payload)
+                   });
+                   
+                   if(res.ok) {
+                      alert("Đã cập nhật bảng kê của Nhân viên ca trước!");
+                      
+                      // Hiển thị TẤT CẢ log lên màn hình
+                      await loadLogs();
+                      
+                      // Thay đổi giao diện nút
+                      this.innerHTML = "<span>&#10004;</span> xác nhận";
+                      this.style.backgroundColor = "#28a745"; 
+                      this.style.opacity = "1"; // Sáng lại nút
+                      isLogPrinted = true;
+                   } else {
+                      alert("Có lỗi xảy ra khi lưu bảng kê!");
+                      this.style.opacity = "1";
+                   }
+                } catch(e) {
+                   alert("Lỗi kết nối máy chủ");
+                   this.style.opacity = "1";
+                } finally {
+                   isProcessing = false; // Tắt cờ chặn spam
+                }
+            } else {
+                // LẦN 2: BẤM XÁC NHẬN 
+                localStorage.setItem('verifyNhanVien2', currentNhanVienId);
+                
+                // Giải phóng cờ cũ
+                localStorage.removeItem('handoverFromId');
+                localStorage.removeItem('currentNhanVienId');
+                localStorage.removeItem('currentNhanVienName');
+                
+                alert("Xác nhận chốt ca thành công! Nhân viên nhận ca vui lòng đăng nhập lại để xác minh.");
+                window.location.href = 'login.html';
             }
          });
 
-       
          // Khởi tạo lần đầu
          rendertable();
-         loadLogs(); // Thay thế renderlogs() cũ
-
       </script>
    </body>
 </html>
