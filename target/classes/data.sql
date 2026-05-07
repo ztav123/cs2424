@@ -3,13 +3,7 @@ INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (123, 'Tài l�
 INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (456, 'Hamburger', 'Đồ ăn', 35000, '');
 INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (789, 'Coca Cola', 'Nước uống', 12000, '');
 INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (367, 'Bú sục 5 chục', 'Đồ ăn', 50000, '');
-
-insert into NHANVIEN values (67, 'Nguyen Phu Quoc', '0365931022', 'Dong Nai', '2025-02-24', '123'); 
-insert into NHANVIEN values (36, 'Peter Lam', '0365122167', 'Cali', '2025-02-23', '1'); 
-
-INSERT INTO QUANLY (id, hoten, mkdangnhap) 
-VALUES (999999, 'Trần Quản Lý', '123456');
-INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (1, 'Phở Bò Tái Lăn', 'Đồ ăn', 55000, 'https://picsum.photos/200/200?random=1');
+INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (1, 'Phở Bò Tái Lăn', 'Đồ ăn', 55000, '');
 INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (2, 'Bún Chả Hà Nội', 'Đồ ăn', 45000, 'https://picsum.photos/200/200?random=2');
 INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (3, 'Bánh Mì Đặc Biệt', 'Đồ ăn', 25000, 'https://picsum.photos/200/200?random=3');
 INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (4, 'Cơm Tấm Sườn Bì', 'Đồ ăn', 40000, 'https://picsum.photos/200/200?random=4');
@@ -40,3 +34,9 @@ INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (28, 'Nước 
 INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (29, 'Cacao Nóng', 'Nước uống', 30000, 'https://picsum.photos/200/200?random=29');
 INSERT INTO SANPHAM (id, ten, category, giaban, image_url) VALUES (30, 'Sữa Tươi Trân Châu', 'Nước uống', 40000, 'https://picsum.photos/200/200?random=30');
 -- ... (Tương tự cho đến id 1000)
+
+insert into NHANVIEN values (67, 'Nguyen Phu Quoc', '0365931022', 'Dong Nai', '2025-02-24', '123'); 
+insert into NHANVIEN values (36, 'Peter Lam', '0365122167', 'Cali', '2025-02-23', '1'); 
+
+INSERT INTO QUANLY (id, hoten, mkdangnhap) 
+VALUES (999999, 'Trần Quản Lý', '123456');

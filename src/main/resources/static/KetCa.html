@@ -358,18 +358,27 @@
                 } finally {
                    isProcessing = false; // Tắt cờ chặn spam
                 }
-            } else {
-                // LẦN 2: BẤM XÁC NHẬN 
-                localStorage.setItem('verifyNhanVien2', currentNhanVienId);
-                
-                // Giải phóng cờ cũ
-                localStorage.removeItem('handoverFromId');
-                localStorage.removeItem('currentNhanVienId');
-                localStorage.removeItem('currentNhanVienName');
-                
-                alert("Xác nhận chốt ca thành công! Nhân viên nhận ca vui lòng đăng nhập lại để xác minh.");
-                window.location.href = 'login.html';
-            }
+               // Tại sự kiện click của nút btn-save-log (khi đã đổi thành nút Xác nhận)
+               } else {
+                  // LẦN 2: BẤM XÁC NHẬN 
+                  const handoverId = localStorage.getItem('handoverFromId');
+
+                  // Chỉ tạo cờ verify nếu thực sự đang có một luồng chuyển ca (có nhân viên bàn giao)
+                  if (handoverId) {
+                     localStorage.setItem('verifyNhanVien2', currentNhanVienId);
+                     alert("Xác nhận chốt ca thành công! Nhân viên nhận ca vui lòng đăng nhập lại để xác minh.");
+                  } else {
+                     alert("Thông báo: Đây là ca đầu tiên hoặc phiên làm việc mới, không cần xác minh chuyển ca.");
+                  }
+                  
+                  // Giải phóng các cờ tạm và đăng xuất
+                  localStorage.removeItem('handoverFromId');
+                  localStorage.removeItem('isHandover');
+                  localStorage.removeItem('currentNhanVienId');
+                  localStorage.removeItem('currentNhanVienName');
+                  
+                  window.location.href = 'login.html';
+               }
          });
 
          // Khởi tạo lần đầu

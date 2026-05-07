@@ -362,7 +362,19 @@
     // === 2. XỬ LÝ NÚT THOÁT (TRƯỜNG HỢP 3) ===
     // Đợi HTML load xong thì tự động móc sự kiện vào nút Thoát (class="btn-exit")
     document.addEventListener("DOMContentLoaded", () => {
+    if (!sessionStorage.getItem('isAppStarted')) {
+        // Nếu vào đây nghĩa là vừa mới mở chương trình
+        // Ta xóa bỏ các cờ chuyển ca cũ còn sót lại trong localStorage
+        localStorage.removeItem('verifyNhanVien2');
+        localStorage.removeItem('isHandover');
+        localStorage.removeItem('handoverFromId');
+        
+        // Đánh dấu đã khởi tạo thành công để không xóa ở các lần load trang tiếp theo
+        sessionStorage.setItem('isAppStarted', 'true');
+        console.log("Hệ thống khởi tạo mới: Đã dọn dẹp các cờ chuyển ca cũ.");
+    }
         const btnExit = document.querySelector('.btn-exit');
+        
         if(btnExit) {
             btnExit.addEventListener('click', () => {
                 const isHandover = localStorage.getItem('isHandover');
@@ -395,9 +407,18 @@
         const isHandover = localStorage.getItem('isHandover');
         const verifyNhanVien2 = localStorage.getItem('verifyNhanVien2');
 
+        // BƯỚC 1: Xử lý chặn nhân viên đang trực tự chuyển ca cho chính mình
         if (isHandover === 'true' && oldId === getid) {
             document.getElementById("loginresult").innerHTML = "Từ chối: Không thể chuyển ca cho chính mình!";
             return; 
+        }
+        
+        // BƯỚC 2: Xử lý lần đăng nhập thứ 3 (Bắt buộc nhân viên nhận ca phải đăng nhập xác minh)
+        if (verifyNhanVien2) {
+            if (verifyNhanVien2 !== getid) {
+                document.getElementById("loginresult").innerHTML = `Từ chối: Chỉ nhân viên nhận ca (ID: ${verifyNhanVien2}) mới được đăng nhập mở phiên!`;
+                return;
+            }
         }
 
         try {
@@ -409,10 +430,10 @@
             let url = `http://localhost:8080/api/auth/login?id=${getid}&password=${getpass}`;
             
             if (isHandover === 'true' && oldId) {
-                // ĐĂNG NHẬP LẦN 1 (Uỷ quyền): Báo Backend KHÔNG tạo ca làm, chỉ check pass và tạo log nháp
+                // ĐĂNG NHẬP LẦN 2 (Uỷ quyền): Báo Backend KHÔNG tạo ca làm, chỉ check pass
                 url += `&oldId=${oldId}&createShift=false`; 
             } else {
-                // ĐĂNG NHẬP LẦN 2 (Hoặc đăng nhập bình thường): Báo Backend TẠO ca làm mới
+                // ĐĂNG NHẬP LẦN 3 (Hoặc bình thường): Báo Backend TẠO ca làm mới
                 url += `&createShift=true`;
             }
 
@@ -421,18 +442,18 @@
             if (response.ok) {
                 const userData = await response.json();
                 
-                // KIỂM TRA ROLE ĐỂ RẼ NHÁNH
+                // KIỂM TRA ROLE
                 if (userData.role === 'QuanLy') {
-                    // Chặn nếu quản lý vô tình quét mã lúc máy POS đang chờ chuyển ca
-                    if (isHandover === 'true') {
-                        document.getElementById("loginresult").innerHTML = "Hệ thống đang chờ chuyển ca, Quản lý không thể đăng nhập!";
+                    if (isHandover === 'true' || verifyNhanVien2) {
+                        document.getElementById("loginresult").innerHTML = "Hệ thống đang trong quá trình chuyển ca, Quản lý không thể thao tác lúc này!";
+                        isLoggingIn = false;
+                        document.querySelector('.btn-login').style.opacity = "1";
                         return;
                     }
-                    // Lưu thông tin quản lý (nếu cần) và điều hướng
                     localStorage.setItem('currentQuanLyId', userData.id);
                     localStorage.setItem('currentQuanLyName', userData.hoten);
                     window.location.href = 'TienIchQuanLy.html';
-                    return; // Kết thúc hàm
+                    return; 
                 }
 
                 // NẾU LÀ NHÂN VIÊN
@@ -440,10 +461,16 @@
                 localStorage.setItem('currentNhanVienName', userData.hoten);
                 
                 if (isHandover === 'true') {
+                    // Thành công bước uỷ quyền, chuyển sang trang Kết ca
                     localStorage.setItem('handoverFromId', oldId); 
                     localStorage.removeItem('isHandover'); 
                     window.location.href = 'KetCa.html';   
                 } else {
+                    // Đăng nhập bình thường hoặc Thành công bước 3 (Xác minh)
+                    if (verifyNhanVien2) {
+                        // Xóa cờ đi để máy POS trở lại trạng thái bình thường cho các lần sau
+                        localStorage.removeItem('verifyNhanVien2'); 
+                    }
                     window.location.href = 'orderPage.html'; 
                 }
             } else {
@@ -451,6 +478,8 @@
             }
         } catch (error) {
             document.getElementById("loginresult").innerHTML = "Lỗi kết nối máy chủ!";
+        } finally {
+            // Luôn reset lại trạng thái nút (nếu không chuyển trang)
             isLoggingIn = false; 
             document.querySelector('.btn-login').style.opacity = "1";
         }
