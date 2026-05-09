@@ -59,7 +59,11 @@
          .btn-action { padding: 12px 24px; border: none; border-radius: 8px; color: white; font-weight: bold; font-size: 1rem; cursor: pointer; display: flex; align-items: center; gap: 8px; text-transform: uppercase; }
          .btn-back { background-color: #cc0000; }
          .btn-print { background-color: #0b5aa6; }
-         
+         .action-icon img{
+            height: 24px;
+            object-fit: contain;
+            filter: invert(100%);
+        }
          /* cột 2: numpad */
          .numpad-container { flex: 0.9; display: flex; flex-direction: column; gap: 15px; }
          .numpad-display { width: 100%; padding: 15px; font-size: 1.5rem; text-align: left; border: 1px solid #555; border-radius: 8px; background: white; outline: none; }
@@ -92,10 +96,7 @@
                <div class="user-info"><span>ID:</span><span>TÊN:</span></div>
             </div>
             <div class="header-right">
-               <div class="header-actions">
-                  <div class="action-icon"><span>🚪</span><span>Kết ca</span></div>
-                  <div class="action-icon"><span>⚙️</span><span>Hỗ trợ</span></div>
-               </div>
+               
                <div class="datetime" id="live-clock">đang tải...</div>
             </div>
          </header>
@@ -119,7 +120,6 @@
                </div>
                <hr class="divider">
                <div class="action-buttons">
-                  <button class="btn-action btn-back"><span>&larr;</span> quay lại</button>
                   <button class="btn-action btn-print" id="btn-save-log"><span>&#128424;</span> in bảng kê</button>
                </div>
             </div>
