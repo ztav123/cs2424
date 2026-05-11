@@ -89,7 +89,7 @@
         .search-box input { flex: 1; padding: 4% 5%; border: 1px solid #ccc; border-radius: 20px; outline: none; font-size: 1.1rem; }
         .search-box input:focus { border-color: #0b5aa6; }
         .category-filters { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; white-space: nowrap; }
-        .cat-btn { width: 136px;padding: 2% 4%; border: none; border-radius: 20px; background: #e0e0e0; cursor: pointer; font-size: 0.95rem; font-weight: bold; }
+        .cat-btn { width: 167px;padding: 2% 4%; border: none; border-radius: 20px; background: #e0e0e0; cursor: pointer; font-size: 0.95rem; font-weight: bold; }
         .cat-btn.active { background: #0b5aa6; color: white; }
         
         /* Lưới Sản Phẩm */
@@ -250,6 +250,31 @@
     .numpad-container.show {
         display: block;
     }
+    /* CSS cho nút cộng trừ trong bảng hóa đơn */
+.qty-btn-small {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #0b5aa6;
+    background: white;
+    color: #0b5aa6;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+.qty-btn-small:hover {
+    background: #0b5aa6;
+    color: white;
+}
+.qty-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
     </style>
 </head>
 <body>
@@ -334,9 +359,12 @@
     </div>
 </div>
                 <div class="category-filters">
-                    <button class="cat-btn active">Tất cả</button>
-                    <button class="cat-btn">Đồ ăn</button>
-                    <button class="cat-btn">Nước uống</button>
+                    <button class="cat-btn active" data-filter="all">Tất cả</button>
+                    <button class="cat-btn" data-filter="food">Đồ ăn</button>
+                    <button class="cat-btn" data-filter="drink">Nước uống</button>
+                    <button class="cat-btn" data-filter="snack">Ăn vặt</button>
+                    <button class="cat-btn" data-filter="personal care">Chăm sóc cá nhân</button>
+                    <button class="cat-btn" data-filter="household">Gia đình</button>
                 </div>
 
                 <div class="product-grid" id="product-grid">
@@ -364,12 +392,24 @@
                     <button id="modalCancelBtn" class="modal-btn modal-btn-cancel">Bỏ qua (Khách lẻ)</button>
                     <button id="modalSearchBtn" class="modal-btn modal-btn-search">Tìm kiếm</button>
                 </div>
+                //Thêm khu vực hiển thị kết quả tìm kiếm
                 <div id="resultArea" class="result-area">
-                    <h3>Thông tin tài khoản</h3>
-                    <div class="info-row"><span class="label">SĐT:</span> <span class="value" id="displayPhone"></span></div>
-                    <div class="info-row"><span class="label">Họ Tên:</span> <span class="value" id="displayCustomerName"></span></div>
-                    <div class="info-row"><span class="label">Điểm:</span> <span class="value" id="displayCustomerPoints"></span></div>
-                    <button id="modalConfirmCustomerBtn" class="modal-btn modal-btn-confirm">XÁC NHẬN TÍCH ĐIỂM</button>
+                                <h3>Thông tin tài khoản</h3>
+                                <div class="info-row"><span class="label">SĐT:</span> <span class="value" id="displayPhone"></span></div>
+                                <div class="info-row"><span class="label">Họ Tên:</span> <span class="value" id="displayCustomerName"></span></div>
+                                <div class="info-row"><span class="label">Điểm:</span> <span class="value" id="displayCustomerPoints"></span></div>
+                                <button id="modalConfirmCustomerBtn" class="modal-btn modal-btn-confirm">XÁC NHẬN TÍCH ĐIỂM</button>
+                            </div>
+
+                            <div id="newCustomerArea" style="display: none; background-color: #ffe8e8; border-radius: 10px; padding: 15px; margin-top: 10px; text-align: center; border: 1px dashed red;">
+                                <h3 style="color: #d32f2f; margin-bottom: 10px;">Khách hàng chưa tồn tại!</h3>
+                                <div class="input-group" style="margin-bottom: 10px; padding: 0;">
+                                    <input type="text" id="newCustomerName" placeholder="Nhập họ tên khách hàng mới (VD: Nguyễn Văn A)...">
+                                </div>
+                                <button id="modalCreateCustomerBtn" class="modal-btn modal-btn-confirm" style="background-color: #ff9800; color: white;">TẠO MỚI & TIẾP TỤC</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -384,8 +424,8 @@
                 <div class="payment-left">
                     <div class="payment-left-header">Thông tin hóa đơn</div>
                     <div class="invoice-info-text">
-                        Mã hóa đơn: <span id="bill-id-display">HD_AUTO</span><br>
-                        Nhân viên: Nô Lệ Tư Bản<br>
+                        Mã hóa đơn: <span id="bill-id-display"></span><br>
+                        Nhân viên: <span id="bill-staff-display"></span><br>
                         Ngày lập: <span id="bill-date-display"></span>
                     </div>
                     
@@ -477,32 +517,94 @@
         }
     });
 
-    // === FETCH DỮ LIỆU SẢN PHẨM TỪ API ===
+    // === FETCH DỮ LIỆU SẢN PHẨM & TỒN KHO TỪ API ===
     let productDatabase = {}; 
     const productGrid = document.getElementById('product-grid');
 
     async function loadProducts() {
         try {
-            const res = await fetch('http://localhost:8080/api/store/sanpham');
-            const products = await res.json();
+            // Fetch song song cả 2 API: Sản phẩm và Kho
+            const [resSp, resKho] = await Promise.all([
+                fetch('http://localhost:8080/api/store/sanpham'),
+                fetch('http://localhost:8080/api/store/kho') // API mới thêm ở StoreController
+            ]);
+            
+            const products = await resSp.json();
+            const khoData = await resKho.json();
+            
+            // Map dữ liệu kho theo ID sản phẩm để tra cứu nhanh { sanphamid: tonkho }
+            const khoMap = {};
+            khoData.forEach(k => {
+                khoMap[k.sanphamid] = k.tonkho;
+            });
+
             productGrid.innerHTML = '';
+            productDatabase = {}; 
             
             products.forEach(p => {
-                productDatabase[p.id] = { id: p.id, name: p.ten, price: p.giaban, image: p.image_url || '.\\img\\logo.png' };
+                const tonKhoHienTai = khoMap[p.id] || 0; // Nếu không có trong kho coi như = 0
+                
+                // Lưu vào database local
+                productDatabase[p.id] = { 
+                    id: p.id, 
+                    name: p.ten, 
+                    price: p.giaban, 
+                    image: p.image_url || '.\\img\\logo.png',
+                    category: p.category || 'Khác',
+                    tonkho: tonKhoHienTai
+                };
+                
                 const card = document.createElement('div');
                 card.className = 'product-card';
                 card.dataset.id = p.id;
+                
+                // THÊM: Lưu category vào dataset để dùng cho Filter
+                card.dataset.category = p.category ? p.category.toLowerCase() : 'khác';
+                
                 let imgSrc = p.image_url && p.image_url !== "" ? p.image_url : '.\\img\\logo.png';
+                
                 card.innerHTML = `
                     <div class="product-img-container"><img src="${imgSrc}" alt="${p.ten}"></div>
                     <div class="product-name">${p.ten}</div>
+                    <div class="product-price">${p.giaban.toLocaleString('vi-VN')} đ</div>
+                    <div style="text-align:center; font-size: 0.85rem; font-weight: bold; margin-top:-5px; padding-bottom:5px; color: ${tonKhoHienTai > 0 ? '#1a9e2a' : 'red'};">
+                        Kho: ${tonKhoHienTai}
+                    </div>
                 `;
+
+                // Làm mờ sản phẩm nếu hết hàng
+                if(tonKhoHienTai <= 0) {
+                    card.style.opacity = '0.5';
+                    card.style.cursor = 'not-allowed';
+                }
+
                 productGrid.appendChild(card);
             });
         } catch (error) { console.error("Lỗi tải sản phẩm", error); }
     }
     loadProducts();
 
+// === LOGIC FILTER CATEGORY (CẬP NHẬT THEO DATA-FILTER) ===
+    document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            // 1. Cập nhật UI nút active
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+
+            // 2. Lấy tên category từ thuộc tính data-filter của nút vừa bấm
+            const filterCat = this.dataset.filter.toLowerCase();
+
+            // 3. Ẩn/Hiện thẻ sản phẩm dựa trên data-category
+            document.querySelectorAll('.product-card').forEach(card => {
+                // Nếu nút là 'all' hoặc category của sản phẩm khớp với nút bấm thì hiện
+                if (filterCat === 'all' || card.dataset.category === filterCat) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    });
     /* ================= LOGIC GIỎ HÀNG ================= */
     const invoiceList = document.getElementById('invoice-list');
     let currentCartTotal = 0;
@@ -520,32 +622,118 @@
 
     function clearCart() { invoiceList.innerHTML = ''; updateCartTotal(); }
 
+// CẬP NHẬT HÀM THÊM SẢN PHẨM VÀO HÓA ĐƠN
     function addToInvoice(productId) {
         const p = productDatabase[productId];
         if (!p) return;
+
         let row = document.querySelector(`.table-row[data-id="${p.id}"]`);
+        let currentQtyInCart = row ? parseInt(row.querySelector('.item-qty').textContent) : 0;
+
+        // Kiểm tra tồn kho
+        if (currentQtyInCart + 1 > p.tonkho) {
+            alert(`Sản phẩm "${p.name}" đã hết hoặc chỉ còn ${p.tonkho} cái trong kho!`);
+            return;
+        }
+
         if (row) {
-            let qtySpan = row.querySelector('.item-qty');
-            qtySpan.textContent = parseInt(qtySpan.textContent) + 1;
-            row.querySelector('.item-total').textContent = (p.price * parseInt(qtySpan.textContent)).toLocaleString('vi-VN');
+            updateRowQuantity(row, currentQtyInCart + 1);
         } else {
             invoiceList.insertAdjacentHTML('afterbegin', `
                 <div class="grid-row table-row" data-id="${p.id}" data-price="${p.price}" data-name="${p.name}">
-                    <div>${p.name}</div> <div>${p.price.toLocaleString('vi-VN')}</div>
-                    <div class="qty-control"><span class="item-qty">1</span></div>
-                    <div>0</div> <div class="item-total">${p.price.toLocaleString('vi-VN')}</div>
+                    <div>${p.name}</div> 
+                    <div>${p.price.toLocaleString('vi-VN')}</div>
+                    <div class="qty-control">
+                        <button class="qty-btn-small btn-minus">-</button>
+                        <span class="item-qty">1</span>
+                        <button class="qty-btn-small btn-plus">+</button>
+                    </div>
+                    <div>0</div> 
+                    <div class="item-total">${p.price.toLocaleString('vi-VN')}</div>
                 </div>
             `);
         }
         updateCartTotal();
     }
-    //logic input san pham vao cảt
+
+    // Hàm phụ trợ cập nhật số lượng và thành tiền trên dòng
+    function updateRowQuantity(row, newQty) {
+        const price = parseInt(row.dataset.price);
+        row.querySelector('.item-qty').textContent = newQty;
+        row.querySelector('.item-total').textContent = (price * newQty).toLocaleString('vi-VN');
+    }
+
+    // XỬ LÝ SỰ KIỆN CLICK VÀO NÚT CỘNG/TRỪ TRÊN HÓA ĐƠN (Event Delegation)
+    invoiceList.addEventListener('click', function(e) {
+        const row = e.target.closest('.table-row');
+        if (!row) return;
+
+        const productId = row.dataset.id;
+        const p = productDatabase[productId];
+        let currentQty = parseInt(row.querySelector('.item-qty').textContent);
+
+        if (e.target.classList.contains('btn-plus')) {
+            // Logic nút Cộng
+            if (currentQty + 1 > p.tonkho) {
+                // Không phản hồi hoặc báo lỗi tùy ý bạn, ở đây là không phản hồi vượt tồn kho
+                return; 
+            }
+            updateRowQuantity(row, currentQty + 1);
+        } 
+        else if (e.target.classList.contains('btn-minus')) {
+            // Logic nút Trừ
+            if (currentQty <= 1) {
+                row.remove(); // Tự mất khỏi đơn nếu đang là 1
+            } else {
+                updateRowQuantity(row, currentQty - 1);
+            }
+        }
+        updateCartTotal();
+    });
+        //logic input san pham vao cảt
 
 // 1. Chọn các phần tử button
 const doneBtn = document.querySelector('.close-btn');
 const addBtn = document.querySelector('.btn-add');
-const searchInput = document.getElementById('barcode-scanner');
+                // HÀM LOẠI BỎ DẤU TIẾNG VIỆT
+    function removeVietnameseTones(str) {
+        str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g,"a");
+        str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g,"e");
+        str = str.replace(/ì|í|ị|ỉ|ĩ/g,"i");
+        str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g,"o");
+        str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g,"u");
+        str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g,"y");
+        str = str.replace(/đ/g,"d");
+        str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+        str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+        str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
+        str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+        str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+        str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+        str = str.replace(/Đ/g, "D"); 
+        return str.trim().toLowerCase(); // Xóa khoảng trắng thừa và chuyển về in thường
+    }
 
+    // LOGIC TÌM KIẾM SẢN PHẨM REAL-TIME
+    const searchInput = document.getElementById('barcode-scanner');
+    searchInput.addEventListener('input', function() {
+        // Lấy giá trị gõ vào, xóa dấu và in thường
+        const keyword = removeVietnameseTones(this.value);
+
+        // Duyệt qua tất cả các thẻ sản phẩm
+        document.querySelectorAll('.product-card').forEach(card => {
+            const id = card.dataset.id;
+            const originalName = productDatabase[id].name; 
+            const normalizedName = removeVietnameseTones(originalName);
+
+            // Kiểm tra: Nếu mã ID chứa từ khóa HOẶC Tên sản phẩm chứa từ khóa
+            if (id.includes(keyword) || normalizedName.includes(keyword)) {
+                card.style.display = 'flex'; // Hiển thị
+            } else {
+                card.style.display = 'none'; // Ẩn đi
+            }
+        });
+    });
 // 2. Logic cho nút "Thêm" (btn-add)
 // Khi click hoặc nhấn Enter trên nút này, nó sẽ lấy giá trị từ ô input để thêm sản phẩm
 const handleManualAdd = () => {
@@ -626,23 +814,69 @@ searchInput.addEventListener('keypress', function(event) {
 
     document.getElementById('closeLoyaltyDotBtn').addEventListener('click', () => loyaltyModal.style.display = 'none');
 
+    // XỬ LÝ NÚT: TÌM KIẾM KHÁCH HÀNG
     document.getElementById('modalSearchBtn').addEventListener('click', async () => {
         const phone = document.getElementById('phoneInput').value.trim();
+        if(!phone) { alert("Vui lòng nhập số điện thoại!"); return; }
+
         try {
             const res = await fetch(`http://localhost:8080/api/store/khachhang/${phone}`);
             if (res.ok) {
+                // TRƯỜNG HỢP 1: TÌM THẤY KHÁCH HÀNG
                 const customer = await res.json();
                 document.getElementById('displayPhone').textContent = customer.sdt;
                 document.getElementById('displayCustomerName').textContent = customer.ten;
                 document.getElementById('displayCustomerPoints').textContent = customer.diem;
+                
                 resultArea.style.display = 'block';
+                document.getElementById('newCustomerArea').style.display = 'none'; // Ẩn form tạo mới
                 currentCustomerSdt = customer.sdt;
             } else {
-                alert("Không tìm thấy số điện thoại trong hệ thống!");
+                // TRƯỜNG HỢP 2: KHÔNG TÌM THẤY -> MỞ FORM TẠO MỚI
                 resultArea.style.display = 'none';
-                currentCustomerSdt = null;
+                document.getElementById('newCustomerArea').style.display = 'block'; // Hiện form tạo mới
+                document.getElementById('newCustomerName').value = ''; // Xóa trắng ô tên
             }
         } catch (error) { alert("Lỗi kết nối máy chủ"); }
+    });
+
+    // XỬ LÝ NÚT: TẠO MỚI KHÁCH HÀNG & TIẾP TỤC
+    document.getElementById('modalCreateCustomerBtn').addEventListener('click', async () => {
+        const phone = document.getElementById('phoneInput').value.trim();
+        const name = document.getElementById('newCustomerName').value.trim();
+        
+        if(!name) { alert("Vui lòng nhập tên khách hàng!"); return; }
+
+        const newCustomerData = { sdt: phone, ten: name };
+
+        try {
+            const res = await fetch('http://localhost:8080/api/store/khachhang', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newCustomerData)
+            });
+            
+            if (res.ok) {
+                const savedCustomer = await res.json();
+                currentCustomerSdt = savedCustomer.sdt; // Lưu lại SĐT để lát thanh toán
+                
+                // Mở thẳng sang Modal thanh toán
+                alert(`Đã tạo thành công khách hàng: ${savedCustomer.ten}`);
+                openPaymentModalFlow();
+            } else {
+                alert("Lỗi không thể tạo khách hàng!");
+            }
+        } catch (error) { alert("Lỗi kết nối khi tạo khách hàng!"); }
+    });
+
+    // Reset lại trạng thái các form khi mở Modal Tích điểm
+    document.getElementById('openLoyaltyModal').addEventListener('click', () => {
+        if (invoiceList.children.length === 0) { alert("Giỏ hàng đang trống!"); return; }
+        loyaltyModal.style.display = 'flex';
+        document.getElementById('phoneInput').value = '';
+        resultArea.style.display = 'none';
+        document.getElementById('newCustomerArea').style.display = 'none';
+        currentCustomerSdt = null;
     });
 
     document.getElementById('modalCancelBtn').addEventListener('click', () => {
@@ -664,9 +898,17 @@ searchInput.addEventListener('keypress', function(event) {
     function renderPaymentInvoice() {
         const payBillContainer = document.getElementById('payment-bill-items');
         payBillContainer.innerHTML = ''; 
-        document.getElementById('bill-id-display').textContent = 'HD AUTO'; 
-        document.getElementById('bill-date-display').textContent = new Date().toLocaleDateString('vi-VN');
+        
+        // 1. Điền thông tin vào các Span
+        const now = new Date();
+        const staffName = localStorage.getItem('currentNhanVienName') || "N/A";
+        const invoiceId = "HD" + now.getTime(); // Tạo mã HD dựa trên timestamp
 
+        document.getElementById('bill-id-display').textContent = invoiceId;
+        document.getElementById('bill-staff-display').textContent = staffName;
+        document.getElementById('bill-date-display').textContent = now.toLocaleString('vi-VN');
+
+        // 2. Render danh sách sản phẩm (Giữ nguyên logic cũ của bạn)
         document.querySelectorAll('.table-row').forEach(row => {
             const name = row.dataset.name;
             const price = parseInt(row.dataset.price).toLocaleString('vi-VN');
@@ -684,7 +926,6 @@ searchInput.addEventListener('keypress', function(event) {
         document.getElementById('pay-total').textContent = totalAmountStr;
         document.getElementById('pay-final').textContent = totalAmountStr;
     }
-
     async function processPayment(method) {
         const chiTietArr = [];
         document.querySelectorAll('.table-row').forEach(row => {
@@ -696,7 +937,9 @@ searchInput.addEventListener('keypress', function(event) {
         });
 
         const orderData = {
-            nhanVienId: parseInt(localStorage.getItem('currentNhanVienId')) || 24521487,
+            // Lấy ID hóa đơn từ span đã hiển thị
+            id: document.getElementById('bill-id-display').textContent, 
+            nhanVienId: parseInt(localStorage.getItem('currentNhanVienId')),
             khachHangSdt: currentCustomerSdt,
             tongTien: currentCartTotal,
             phuongThucThanhToan: method,
@@ -714,6 +957,7 @@ searchInput.addEventListener('keypress', function(event) {
                 alert(`Thanh toán ${method} thành công! Kho đã được trừ.`);
                 paymentModal.style.display = 'none';
                 clearCart();
+                loadProducts();
             } else {
                 const errorMsg = await res.text();
                 alert(errorMsg);
