@@ -2,7 +2,7 @@ package com.pos.pos_system.controller;
 
 import com.pos.pos_system.entity.CaLam;
 import com.pos.pos_system.repository.CaLamRepository;
-import com.pos.pos_system.service.PdfService; // Thêm import này
+import com.pos.pos_system.service.PdfService4KetCa; // Thêm import này
 import jakarta.servlet.http.HttpServletResponse; // Thêm import này
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +21,7 @@ import java.util.Map;
 public class KetCaController {
 
     @Autowired private CaLamRepository caLamRepo;
-    @Autowired private PdfService pdfService; // Thêm dòng này
+    @Autowired private PdfService4KetCa PdfService4KetCa; // Thêm dòng này
 
     @PostMapping("/save-log")
     public ResponseEntity<?> saveLog(@RequestBody Map<String, Double> payload) {
@@ -54,7 +54,7 @@ public class KetCaController {
 
         CaLam shift = caLamRepo.findById(id).orElse(null);
         if (shift != null) {
-            pdfService.exportShiftReport(response, shift);
+            PdfService4KetCa.exportShiftReport(response, shift);
         }
     }
 }

@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 
 @Service
-public class PdfService {
+public class PdfService4KetCa {
     public void exportShiftReport(HttpServletResponse response, CaLam shift) throws IOException {
         Document document = new Document(PageSize.A4);
         PdfWriter.getInstance(document, response.getOutputStream());
@@ -31,7 +31,11 @@ public class PdfService {
         table.setWidthPercentage(100);
         table.addCell("Chi so"); table.addCell("So tien (VND)");
         table.addCell("Doanh thu he thong"); table.addCell(String.format("%,.0f", shift.getTongDoanhthu()));
+        table.addCell("Tien ngan hang"); table.addCell(String.format("%,.0f", shift.getTienNganhang()));
+        table.addCell("Tien mat can nop"); table.addCell(String.format("%,.0f", shift.getTongtienThucte() - shift.getTienNganhang()));
         table.addCell("Thuc te kiem ke"); table.addCell(String.format("%,.0f", shift.getTongtienThucte()));
+        table.addCell("Chenh lech"); table.addCell(String.format("%,.0f", shift.getTongtienThucte() - shift.getTongDoanhthu()));
+
         document.add(table);
 
         document.close();

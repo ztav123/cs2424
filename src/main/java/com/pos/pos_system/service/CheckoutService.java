@@ -42,7 +42,16 @@ public class CheckoutService {
         hd.setNgaylap(LocalDateTime.now());
         hd.setTongtien(Double.valueOf(req.getTongTien())); 
         hd.setPhuongthucTt(req.getPhuongThucThanhToan()); 
-        hd.setTrangthai("HOAN_THANH");
+        hd.setNgaylap(LocalDateTime.now());
+        hd.setTongtien(Double.valueOf(req.getTongTien())); 
+        hd.setPhuongthucTt(req.getPhuongThucThanhToan()); 
+        
+        // THAY ĐỔI Ở ĐÂY: Nếu là Ngân hàng thì chuyển trạng thái thành Chờ
+        if ("Ngân hàng".equalsIgnoreCase(req.getPhuongThucThanhToan())) {
+            hd.setTrangthai("CHO_THANH_TOAN");
+        } else {
+            hd.setTrangthai("HOAN_THANH");
+        }
 
         HoaDon savedHd = hoaDonRepo.save(hd);
 
@@ -64,5 +73,14 @@ public class CheckoutService {
         }
         
         return savedHd;
+    }
+
+    @Transactional
+    public void updateOrderStatus(String orderId, String status) {
+        HoaDon hd = hoaDonRepo.findById(orderId).orElse(null);
+        if (hd != null) {
+            hd.setTrangthai(status);
+            hoaDonRepo.save(hd);
+        }
     }
 }

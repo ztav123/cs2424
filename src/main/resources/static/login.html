@@ -400,9 +400,9 @@
     async function loginchecked() {
         if (isLoggingIn) return; // Chặn spam click
 
-        const getid = document.getElementById("ID").value; 
-        const getpass = document.getElementById("Password").value; 
-        
+        const getid = document.getElementById("ID").value;
+        const getpass = document.getElementById("Password").value;
+
         const oldId = localStorage.getItem('currentNhanVienId');
         const isHandover = localStorage.getItem('isHandover');
         const verifyNhanVien2 = localStorage.getItem('verifyNhanVien2');

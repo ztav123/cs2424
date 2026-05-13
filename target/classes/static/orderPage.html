@@ -835,13 +835,27 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(orderData)
             });
+            
+            // NHẬN DỮ LIỆU JSON TỪ BACKEND
+            const data = await res.json();
+
             if (res.ok) {
-                alert(`Thanh toán ${method} thành công!`);
-                paymentModal.style.display = 'none';
-                clearCart();
-                loadProducts(); // Cập nhật lại tồn kho ngay lập tức
-            } else alert(await res.text());
-        } catch (error) { alert("Lỗi hệ thống khi thanh toán!"); }
+                if (data.url) {
+                    // Nếu là thanh toán VNPay -> Trình duyệt tự động chuyển sang trang VNPay
+                    window.location.href = data.url;
+                } else {
+                    // Nếu là Tiền mặt / Momo -> Thông báo và làm sạch giỏ hàng như bình thường
+                    alert(data.message);
+                    paymentModal.style.display = 'none';
+                    clearCart();
+                    loadProducts(); 
+                }
+            } else {
+                alert(data.error || "Lỗi thanh toán!");
+            }
+        } catch (error) { 
+            alert("Lỗi hệ thống khi thanh toán!"); 
+        }
     }
 </script>
 </body>
