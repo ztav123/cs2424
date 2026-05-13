@@ -426,6 +426,7 @@
                     <div class="invoice-info-text">
                         Mã hóa đơn: <span id="bill-id-display"></span><br>
                         Nhân viên: <span id="bill-staff-display"></span><br>
+                        Khách hàng: <span id="bill-customer-display"></span><br>
                         Ngày lập: <span id="bill-date-display"></span>
                     </div>
                     
@@ -472,96 +473,75 @@
             </div>
         </div>
     </div>
-
 <script>
-    document.getElementById('btn-thoat').addEventListener('click', function() {
-        window.location.href = 'TienIchNhanVien.html';
-    });
-    // --- LOGIC KẾT CA (MỚI THÊM) ---
-    document.getElementById('btn-ket-ca').addEventListener('click', function() {
-        // Gắn cờ bàn giao vào localStorage
-        localStorage.setItem('isHandover', 'true');
+    // =========================================================================
+    // 1. KHỞI TẠO BIẾN TOÀN CỤC & DOM ELEMENTS (Tránh lỗi ReferenceError)
+    // =========================================================================
+    const productGrid = document.getElementById('product-grid');
+    const searchInput = document.getElementById('barcode-scanner');
+    const numpadPopup = document.getElementById('numpad-popup');
+    const invoiceList = document.getElementById('invoice-list');
+    
+    let productDatabase = {}; 
+    let currentCartTotal = 0;
+    let currentCustomerSdt = null;
+
+    // =========================================================================
+    // 2. KHỞI ĐỘNG HỆ THỐNG KHI LOAD TRANG
+    // =========================================================================
+    document.addEventListener("DOMContentLoaded", () => {
+        loadProducts(); 
         
-        // Chuyển hướng thẳng về trang đăng nhập để nhân viên mới quét thẻ/nhập mã
-        window.location.href = 'login.html'; 
+        // Cập nhật thông tin nhân viên
+        const nvId = localStorage.getItem('currentNhanVienId');
+        const nvName = localStorage.getItem('currentNhanVienName');
+        const userInfoSpans = document.querySelectorAll('.user-info span');
+        if(nvId) userInfoSpans[0].textContent = `ID: ${nvId}`;
+        if(nvName) userInfoSpans[1].textContent = `TÊN: ${nvName.toUpperCase()}`;
     });
 
-    // ... (Giữ nguyên code updateDateTime của bạn) ...
+    // Đồng hồ
     function updateDateTime() {
         const now = new Date();
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const dayName = days[now.getDay()];
-        const monthName = months[now.getMonth()];
-        const dateNumber = now.getDate();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        document.getElementById('live-clock').textContent = `${dayName} ${monthName} ${dateNumber} ${hours}:${minutes}:${seconds}`;
+        document.getElementById('live-clock').textContent = 
+            `${days[now.getDay()]} ${months[now.getMonth()]} ${now.getDate()} ` +
+            `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
     }
     setInterval(updateDateTime, 1000); 
     updateDateTime();
 
-    // === HÀM LẤY VÀ HIỂN THỊ ID & TÊN NHÂN VIÊN ===
-    document.addEventListener("DOMContentLoaded", () => {
-        const nvId = localStorage.getItem('currentNhanVienId');
-        const nvName = localStorage.getItem('currentNhanVienName');
-        const userInfoSpans = document.querySelectorAll('.user-info span');
-        
-        if(nvId) {
-            userInfoSpans[0].textContent = `ID: ${nvId}`;
-        }
-        
-        if(nvName) {
-            userInfoSpans[1].textContent = `TÊN: ${nvName.toUpperCase()}`;
-        }
-    });
-
-    // === FETCH DỮ LIỆU SẢN PHẨM & TỒN KHO TỪ API ===
-    let productDatabase = {}; 
-    const productGrid = document.getElementById('product-grid');
-
+    // =========================================================================
+    // 3. LOGIC SẢN PHẨM & TÌM KIẾM
+    // =========================================================================
     async function loadProducts() {
         try {
-            // Fetch song song cả 2 API: Sản phẩm và Kho
-            const [resSp, resKho] = await Promise.all([
-                fetch('http://localhost:8080/api/store/sanpham'),
-                fetch('http://localhost:8080/api/store/kho') // API mới thêm ở StoreController
-            ]);
-            
+            const resSp = await fetch('http://localhost:8080/api/sanpham');
             const products = await resSp.json();
-            const khoData = await resKho.json();
             
-            // Map dữ liệu kho theo ID sản phẩm để tra cứu nhanh { sanphamid: tonkho }
-            const khoMap = {};
-            khoData.forEach(k => {
-                khoMap[k.sanphamid] = k.tonkho;
-            });
-
             productGrid.innerHTML = '';
             productDatabase = {}; 
             
+            if (products.length === 0) {
+                productGrid.innerHTML = '<h3 style="color:red; width:100%; text-align:center; margin-top:20px;">Chưa có sản phẩm nào!</h3>';
+                return;
+            }
+            
             products.forEach(p => {
-                const tonKhoHienTai = khoMap[p.id] || 0; // Nếu không có trong kho coi như = 0
-                
-                // Lưu vào database local
+                const tonKhoHienTai = p.tonkho || 0; 
                 productDatabase[p.id] = { 
-                    id: p.id, 
-                    name: p.ten, 
-                    price: p.giaban, 
-                    image: p.image_url || '.\\img\\logo.png',
-                    category: p.category || 'Khác',
-                    tonkho: tonKhoHienTai
+                    id: p.id, name: p.ten, price: p.giaban, 
+                    image: p.imageUrl || '.\\img\\logo.png',
+                    category: p.category || 'Khác', tonkho: tonKhoHienTai
                 };
                 
                 const card = document.createElement('div');
                 card.className = 'product-card';
                 card.dataset.id = p.id;
-                
-                // THÊM: Lưu category vào dataset để dùng cho Filter
                 card.dataset.category = p.category ? p.category.toLowerCase() : 'khác';
                 
-                let imgSrc = p.image_url && p.image_url !== "" ? p.image_url : '.\\img\\logo.png';
+                let imgSrc = p.imageUrl && p.imageUrl !== "" ? p.imageUrl : '.\\img\\logo.png';
                 
                 card.innerHTML = `
                     <div class="product-img-container"><img src="${imgSrc}" alt="${p.ten}"></div>
@@ -571,44 +551,76 @@
                         Kho: ${tonKhoHienTai}
                     </div>
                 `;
-
-                // Làm mờ sản phẩm nếu hết hàng
                 if(tonKhoHienTai <= 0) {
                     card.style.opacity = '0.5';
                     card.style.cursor = 'not-allowed';
                 }
-
                 productGrid.appendChild(card);
             });
-        } catch (error) { console.error("Lỗi tải sản phẩm", error); }
+        } catch (error) { console.error("Lỗi tải sản phẩm:", error); }
     }
-    loadProducts();
 
-// === LOGIC FILTER CATEGORY (CẬP NHẬT THEO DATA-FILTER) ===
+    // Bộ lọc danh mục (Đồ ăn, Thức uống...)
     document.querySelectorAll('.cat-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            // 1. Cập nhật UI nút active
             document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
-
-            // 2. Lấy tên category từ thuộc tính data-filter của nút vừa bấm
             const filterCat = this.dataset.filter.toLowerCase();
-
-            // 3. Ẩn/Hiện thẻ sản phẩm dựa trên data-category
             document.querySelectorAll('.product-card').forEach(card => {
-                // Nếu nút là 'all' hoặc category của sản phẩm khớp với nút bấm thì hiện
-                if (filterCat === 'all' || card.dataset.category === filterCat) {
-                    card.style.display = 'flex';
-                } else {
-                    card.style.display = 'none';
-                }
+                card.style.display = (filterCat === 'all' || card.dataset.category === filterCat) ? 'flex' : 'none';
             });
         });
     });
-    /* ================= LOGIC GIỎ HÀNG ================= */
-    const invoiceList = document.getElementById('invoice-list');
-    let currentCartTotal = 0;
 
+    // Tìm kiếm sản phẩm
+    function removeVietnameseTones(str) {
+        str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g,"a").replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g,"e").replace(/ì|í|ị|ỉ|ĩ/g,"i").replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g,"o").replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g,"u").replace(/ỳ|ý|ỵ|ỷ|ỹ/g,"y").replace(/đ/g,"d");
+        str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A").replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E").replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I").replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O").replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U").replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y").replace(/Đ/g, "D"); 
+        return str.trim().toLowerCase(); 
+    }
+
+    searchInput.addEventListener('input', function() {
+        const keyword = removeVietnameseTones(this.value);
+        document.querySelectorAll('.product-card').forEach(card => {
+            const id = card.dataset.id;
+            const originalName = productDatabase[id].name; 
+            const normalizedName = removeVietnameseTones(originalName);
+            card.style.display = (id.includes(keyword) || normalizedName.includes(keyword)) ? 'flex' : 'none';
+        });
+    });
+
+    // =========================================================================
+    // 4. BÀN PHÍM ẢO (NUMPAD)
+    // =========================================================================
+    const showNumpad = () => numpadPopup.classList.add('show');
+    searchInput.addEventListener('focus', showNumpad);
+    searchInput.addEventListener('click', showNumpad);
+
+    document.querySelectorAll('.n-btn').forEach(button => {
+        button.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // Tránh làm mất focus input
+            if (button.classList.contains('backspace')) {
+                searchInput.value = searchInput.value.slice(0, -1);
+            } else if (button.classList.contains('clear')) {
+                searchInput.value = '';
+            } else if (button.classList.contains('close-btn')) {
+                numpadPopup.classList.remove('show');
+                searchInput.blur();
+            } else {
+                searchInput.value += button.innerText;
+            }
+            searchInput.dispatchEvent(new Event('input')); // Kích hoạt tìm kiếm
+        });
+    });
+
+    // Đóng numpad khi bấm ra ngoài
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-box')) numpadPopup.classList.remove('show');
+    });
+
+    // =========================================================================
+    // 5. LOGIC GIỎ HÀNG (HÓA ĐƠN)
+    // =========================================================================
     function updateCartTotal() {
         let total = 0;
         document.querySelectorAll('.table-row').forEach(row => {
@@ -622,17 +634,15 @@
 
     function clearCart() { invoiceList.innerHTML = ''; updateCartTotal(); }
 
-// CẬP NHẬT HÀM THÊM SẢN PHẨM VÀO HÓA ĐƠN
     function addToInvoice(productId) {
         const p = productDatabase[productId];
-        if (!p) return;
+        if (!p) { alert("Không tìm thấy mã sản phẩm này!"); return; }
 
         let row = document.querySelector(`.table-row[data-id="${p.id}"]`);
         let currentQtyInCart = row ? parseInt(row.querySelector('.item-qty').textContent) : 0;
 
-        // Kiểm tra tồn kho
         if (currentQtyInCart + 1 > p.tonkho) {
-            alert(`Sản phẩm "${p.name}" đã hết hoặc chỉ còn ${p.tonkho} cái trong kho!`);
+            alert(`Sản phẩm "${p.name}" chỉ còn ${p.tonkho} cái trong kho!`);
             return;
         }
 
@@ -656,220 +666,63 @@
         updateCartTotal();
     }
 
-    // Hàm phụ trợ cập nhật số lượng và thành tiền trên dòng
     function updateRowQuantity(row, newQty) {
         const price = parseInt(row.dataset.price);
         row.querySelector('.item-qty').textContent = newQty;
         row.querySelector('.item-total').textContent = (price * newQty).toLocaleString('vi-VN');
     }
 
-    // XỬ LÝ SỰ KIỆN CLICK VÀO NÚT CỘNG/TRỪ TRÊN HÓA ĐƠN (Event Delegation)
-    invoiceList.addEventListener('click', function(e) {
-        const row = e.target.closest('.table-row');
-        if (!row) return;
-
-        const productId = row.dataset.id;
-        const p = productDatabase[productId];
-        let currentQty = parseInt(row.querySelector('.item-qty').textContent);
-
-        if (e.target.classList.contains('btn-plus')) {
-            // Logic nút Cộng
-            if (currentQty + 1 > p.tonkho) {
-                // Không phản hồi hoặc báo lỗi tùy ý bạn, ở đây là không phản hồi vượt tồn kho
-                return; 
-            }
-            updateRowQuantity(row, currentQty + 1);
-        } 
-        else if (e.target.classList.contains('btn-minus')) {
-            // Logic nút Trừ
-            if (currentQty <= 1) {
-                row.remove(); // Tự mất khỏi đơn nếu đang là 1
-            } else {
-                updateRowQuantity(row, currentQty - 1);
-            }
-        }
-        updateCartTotal();
-    });
-        //logic input san pham vao cảt
-
-// 1. Chọn các phần tử button
-const doneBtn = document.querySelector('.close-btn');
-const addBtn = document.querySelector('.btn-add');
-                // HÀM LOẠI BỎ DẤU TIẾNG VIỆT
-    function removeVietnameseTones(str) {
-        str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g,"a");
-        str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g,"e");
-        str = str.replace(/ì|í|ị|ỉ|ĩ/g,"i");
-        str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g,"o");
-        str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g,"u");
-        str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g,"y");
-        str = str.replace(/đ/g,"d");
-        str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
-        str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
-        str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
-        str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
-        str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
-        str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
-        str = str.replace(/Đ/g, "D"); 
-        return str.trim().toLowerCase(); // Xóa khoảng trắng thừa và chuyển về in thường
-    }
-
-    // LOGIC TÌM KIẾM SẢN PHẨM REAL-TIME
-    const searchInput = document.getElementById('barcode-scanner');
-    searchInput.addEventListener('input', function() {
-        // Lấy giá trị gõ vào, xóa dấu và in thường
-        const keyword = removeVietnameseTones(this.value);
-
-        // Duyệt qua tất cả các thẻ sản phẩm
-        document.querySelectorAll('.product-card').forEach(card => {
-            const id = card.dataset.id;
-            const originalName = productDatabase[id].name; 
-            const normalizedName = removeVietnameseTones(originalName);
-
-            // Kiểm tra: Nếu mã ID chứa từ khóa HOẶC Tên sản phẩm chứa từ khóa
-            if (id.includes(keyword) || normalizedName.includes(keyword)) {
-                card.style.display = 'flex'; // Hiển thị
-            } else {
-                card.style.display = 'none'; // Ẩn đi
-            }
-        });
-    });
-// 2. Logic cho nút "Thêm" (btn-add)
-// Khi click hoặc nhấn Enter trên nút này, nó sẽ lấy giá trị từ ô input để thêm sản phẩm
-const handleManualAdd = () => {
-    const value = searchInput.value.trim();
-    if (value) {
-        addToInvoice(value);
-        searchInput.value = ''; // Xóa trắng ô nhập
-        searchInput.focus();    // Đưa con trỏ chuột lại ô nhập
-    } else {
-        alert("Vui lòng nhập mã sản phẩm hoặc quét mã!");
-    }
-};
-
-addBtn.addEventListener('click', handleManualAdd);
-addBtn.addEventListener('keydown', function(event) {
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        handleManualAdd();
-    }
-});
-
-// 3. Logic cho nút "Done" (close-btn)
-// Thường dùng để kết thúc hóa đơn hoặc thanh toán
-const handleFinishInvoice = () => {
-    if (currentCartTotal === 0) {
-        alert("Giỏ hàng đang trống!");
-        return;
-    }
-    
-    const total = updateCartTotal();
-    alert(`Xác nhận thanh toán: ${total.toLocaleString('vi-VN')} VNĐ`);
-    
-    // Sau khi "Done", thường sẽ xóa giỏ hàng để làm đơn mới
-    clearCart();
-};
-
-doneBtn.addEventListener('click', handleFinishInvoice);
-doneBtn.addEventListener('keydown', function(event) {
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        handleFinishInvoice();
-    }
-});
-
-// 4. Giữ nguyên logic Enter trực tiếp từ ô input để gõ cho nhanh
-searchInput.addEventListener('keypress', function(event) {
-    if (event.key === 'Enter') {
-        event.preventDefault();
-        const value = searchInput.value.trim();
-        if (value) {
-            addToInvoice(value);
-            searchInput.value = '';
-        }
-    }
-});
-
-// 5. Logic click chọn sản phẩm từ danh sách (Grid)
-
-
+    // Click thêm sản phẩm từ thẻ
     productGrid.addEventListener('click', function(event) {
         const card = event.target.closest('.product-card');
         if (card && card.dataset.id) addToInvoice(card.dataset.id); 
     });
 
-    /* ================= LOGIC THANH TOÁN ================= */
+    // Thêm từ ô input (Nút "Thêm" hoặc nhấn Enter)
+    document.querySelector('.btn-add').addEventListener('click', () => {
+        const val = searchInput.value.trim();
+        if(val) { addToInvoice(val); searchInput.value = ''; searchInput.dispatchEvent(new Event('input')); }
+    });
+    searchInput.addEventListener('keypress', (e) => {
+        if(e.key === 'Enter') { 
+            e.preventDefault(); 
+            if(searchInput.value.trim()) { addToInvoice(searchInput.value.trim()); searchInput.value = ''; searchInput.dispatchEvent(new Event('input')); }
+        }
+    });
+
+    // Tăng giảm số lượng trong giỏ
+    invoiceList.addEventListener('click', function(e) {
+        const row = e.target.closest('.table-row');
+        if (!row) return;
+
+        const p = productDatabase[row.dataset.id];
+        let currentQty = parseInt(row.querySelector('.item-qty').textContent);
+
+        if (e.target.classList.contains('btn-plus')) {
+            if (currentQty + 1 > p.tonkho) return; 
+            updateRowQuantity(row, currentQty + 1);
+        } else if (e.target.classList.contains('btn-minus')) {
+            if (currentQty <= 1) row.remove();
+            else updateRowQuantity(row, currentQty - 1);
+        }
+        updateCartTotal();
+    });
+
+    // =========================================================================
+    // 6. LOGIC THANH TOÁN & MODAL
+    // =========================================================================
     const loyaltyModal = document.getElementById('loyaltyModal');
     const paymentModal = document.getElementById('paymentModal');
     const resultArea = document.getElementById('resultArea');
-    let currentCustomerSdt = null;
 
-    document.getElementById('openLoyaltyModal').addEventListener('click', () => {
-        if (invoiceList.children.length === 0) { alert("Giỏ hàng đang trống!"); return; }
-        loyaltyModal.style.display = 'flex';
-        document.getElementById('phoneInput').value = '';
-        resultArea.style.display = 'none';
-        currentCustomerSdt = null;
+    // Nút điều hướng
+    document.getElementById('btn-thoat').addEventListener('click', () => window.location.href = 'TienIchNhanVien.html');
+    document.getElementById('btn-ket-ca').addEventListener('click', () => {
+        localStorage.setItem('isHandover', 'true');
+        window.location.href = 'login.html'; 
     });
 
-    document.getElementById('closeLoyaltyDotBtn').addEventListener('click', () => loyaltyModal.style.display = 'none');
-
-    // XỬ LÝ NÚT: TÌM KIẾM KHÁCH HÀNG
-    document.getElementById('modalSearchBtn').addEventListener('click', async () => {
-        const phone = document.getElementById('phoneInput').value.trim();
-        if(!phone) { alert("Vui lòng nhập số điện thoại!"); return; }
-
-        try {
-            const res = await fetch(`http://localhost:8080/api/store/khachhang/${phone}`);
-            if (res.ok) {
-                // TRƯỜNG HỢP 1: TÌM THẤY KHÁCH HÀNG
-                const customer = await res.json();
-                document.getElementById('displayPhone').textContent = customer.sdt;
-                document.getElementById('displayCustomerName').textContent = customer.ten;
-                document.getElementById('displayCustomerPoints').textContent = customer.diem;
-                
-                resultArea.style.display = 'block';
-                document.getElementById('newCustomerArea').style.display = 'none'; // Ẩn form tạo mới
-                currentCustomerSdt = customer.sdt;
-            } else {
-                // TRƯỜNG HỢP 2: KHÔNG TÌM THẤY -> MỞ FORM TẠO MỚI
-                resultArea.style.display = 'none';
-                document.getElementById('newCustomerArea').style.display = 'block'; // Hiện form tạo mới
-                document.getElementById('newCustomerName').value = ''; // Xóa trắng ô tên
-            }
-        } catch (error) { alert("Lỗi kết nối máy chủ"); }
-    });
-
-    // XỬ LÝ NÚT: TẠO MỚI KHÁCH HÀNG & TIẾP TỤC
-    document.getElementById('modalCreateCustomerBtn').addEventListener('click', async () => {
-        const phone = document.getElementById('phoneInput').value.trim();
-        const name = document.getElementById('newCustomerName').value.trim();
-        
-        if(!name) { alert("Vui lòng nhập tên khách hàng!"); return; }
-
-        const newCustomerData = { sdt: phone, ten: name };
-
-        try {
-            const res = await fetch('http://localhost:8080/api/store/khachhang', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newCustomerData)
-            });
-            
-            if (res.ok) {
-                const savedCustomer = await res.json();
-                currentCustomerSdt = savedCustomer.sdt; // Lưu lại SĐT để lát thanh toán
-                
-                // Mở thẳng sang Modal thanh toán
-                alert(`Đã tạo thành công khách hàng: ${savedCustomer.ten}`);
-                openPaymentModalFlow();
-            } else {
-                alert("Lỗi không thể tạo khách hàng!");
-            }
-        } catch (error) { alert("Lỗi kết nối khi tạo khách hàng!"); }
-    });
-
-    // Reset lại trạng thái các form khi mở Modal Tích điểm
+    // Mở Modal Tích điểm
     document.getElementById('openLoyaltyModal').addEventListener('click', () => {
         if (invoiceList.children.length === 0) { alert("Giỏ hàng đang trống!"); return; }
         loyaltyModal.style.display = 'flex';
@@ -879,45 +732,75 @@ searchInput.addEventListener('keypress', function(event) {
         currentCustomerSdt = null;
     });
 
-    document.getElementById('modalCancelBtn').addEventListener('click', () => {
-        currentCustomerSdt = null; 
-        openPaymentModalFlow();
-    });
-    
+    document.getElementById('closeLoyaltyDotBtn').addEventListener('click', () => loyaltyModal.style.display = 'none');
+    document.getElementById('modalCancelBtn').addEventListener('click', () => { currentCustomerSdt = null; openPaymentModalFlow(); });
     document.getElementById('modalConfirmCustomerBtn').addEventListener('click', openPaymentModalFlow);
-
-    function openPaymentModalFlow() {
-        loyaltyModal.style.display = 'none';
-        renderPaymentInvoice(); 
-        paymentModal.style.display = 'flex';
-    }
-
     document.getElementById('closePaymentDotBtn').addEventListener('click', () => paymentModal.style.display = 'none');
     document.getElementById('btnCancelPayment').addEventListener('click', () => paymentModal.style.display = 'none');
 
-    function renderPaymentInvoice() {
+    // Tìm kiếm khách hàng
+    document.getElementById('modalSearchBtn').addEventListener('click', async () => {
+        const phone = document.getElementById('phoneInput').value.trim();
+        if(!phone) { alert("Vui lòng nhập SĐT!"); return; }
+
+        try {
+            const res = await fetch(`http://localhost:8080/api/store/khachhang/${phone}`);
+            if (res.ok) {
+                const customer = await res.json();
+                document.getElementById('displayPhone').textContent = customer.sdt;
+                document.getElementById('displayCustomerName').textContent = customer.ten;
+                document.getElementById('displayCustomerPoints').textContent = customer.diemtichluy || 0; // Update từ DB
+                resultArea.style.display = 'block';
+                document.getElementById('newCustomerArea').style.display = 'none';
+                currentCustomerSdt = customer.sdt;
+            } else {
+                resultArea.style.display = 'none';
+                document.getElementById('newCustomerArea').style.display = 'block';
+                document.getElementById('newCustomerName').value = '';
+            }
+        } catch (error) { alert("Lỗi kết nối máy chủ"); }
+    });
+
+    // Tạo khách hàng mới
+    document.getElementById('modalCreateCustomerBtn').addEventListener('click', async () => {
+        const phone = document.getElementById('phoneInput').value.trim();
+        const name = document.getElementById('newCustomerName').value.trim();
+        if(!name) { alert("Vui lòng nhập tên!"); return; }
+
+        try {
+            const res = await fetch('http://localhost:8080/api/store/khachhang', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sdt: phone, ten: name })
+            });
+            if (res.ok) {
+                const savedCustomer = await res.json();
+                currentCustomerSdt = savedCustomer.sdt; 
+                alert(`Đã tạo khách hàng: ${savedCustomer.ten}`);
+                openPaymentModalFlow();
+            } else alert("Lỗi tạo khách hàng!");
+        } catch (error) { alert("Lỗi kết nối máy chủ!"); }
+    });
+
+    function openPaymentModalFlow() {
+        loyaltyModal.style.display = 'none';
+        
         const payBillContainer = document.getElementById('payment-bill-items');
         payBillContainer.innerHTML = ''; 
         
-        // 1. Điền thông tin vào các Span
         const now = new Date();
-        const staffName = localStorage.getItem('currentNhanVienName') || "N/A";
-        const invoiceId = "HD" + now.getTime(); // Tạo mã HD dựa trên timestamp
-
+        const invoiceId = "HD36" + now.getTime(); 
+        document.getElementById('bill-customer-display').textContent = currentCustomerSdt || "Khách lỏ";
         document.getElementById('bill-id-display').textContent = invoiceId;
-        document.getElementById('bill-staff-display').textContent = staffName;
+        document.getElementById('bill-staff-display').textContent = localStorage.getItem('currentNhanVienName') || "N/A";
         document.getElementById('bill-date-display').textContent = now.toLocaleString('vi-VN');
 
-        // 2. Render danh sách sản phẩm (Giữ nguyên logic cũ của bạn)
         document.querySelectorAll('.table-row').forEach(row => {
-            const name = row.dataset.name;
-            const price = parseInt(row.dataset.price).toLocaleString('vi-VN');
-            const qty = row.querySelector('.item-qty').textContent;
-            const total = row.querySelector('.item-total').textContent;
-            
             payBillContainer.insertAdjacentHTML('beforeend', `
                 <div class="bill-row">
-                    <div>${name}</div> <div>${price}</div> <div>${qty}</div> <div>${total}</div>
+                    <div>${row.dataset.name}</div> 
+                    <div>${parseInt(row.dataset.price).toLocaleString('vi-VN')}</div> 
+                    <div>${row.querySelector('.item-qty').textContent}</div> 
+                    <div>${row.querySelector('.item-total').textContent}</div>
                 </div>
             `);
         });
@@ -925,7 +808,9 @@ searchInput.addEventListener('keypress', function(event) {
         const totalAmountStr = currentCartTotal.toLocaleString('vi-VN') + " VNĐ";
         document.getElementById('pay-total').textContent = totalAmountStr;
         document.getElementById('pay-final').textContent = totalAmountStr;
+        paymentModal.style.display = 'flex';
     }
+
     async function processPayment(method) {
         const chiTietArr = [];
         document.querySelectorAll('.table-row').forEach(row => {
@@ -937,7 +822,6 @@ searchInput.addEventListener('keypress', function(event) {
         });
 
         const orderData = {
-            // Lấy ID hóa đơn từ span đã hiển thị
             id: document.getElementById('bill-id-display').textContent, 
             nhanVienId: parseInt(localStorage.getItem('currentNhanVienId')),
             khachHangSdt: currentCustomerSdt,
@@ -948,63 +832,17 @@ searchInput.addEventListener('keypress', function(event) {
 
         try {
             const res = await fetch('http://localhost:8080/api/checkout/thanhtoan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(orderData)
             });
-            
             if (res.ok) {
-                alert(`Thanh toán ${method} thành công! Kho đã được trừ.`);
+                alert(`Thanh toán ${method} thành công!`);
                 paymentModal.style.display = 'none';
                 clearCart();
-                loadProducts();
-            } else {
-                const errorMsg = await res.text();
-                alert(errorMsg);
-            }
-        } catch (error) { alert("Lỗi khi thanh toán!"); }
+                loadProducts(); // Cập nhật lại tồn kho ngay lập tức
+            } else alert(await res.text());
+        } catch (error) { alert("Lỗi hệ thống khi thanh toán!"); }
     }
-    const numpadPopup = document.getElementById('numpad-popup');
-    const numButtons = document.querySelectorAll('.n-btn');
-
-    // 1. Hiện Numpad khi focus click vào input
-    const showNumpad = () => {
-        numpadPopup.classList.add('show');
-    };
-    searchInput.addEventListener('focus', showNumpad);
-    searchInput.addEventListener('click', showNumpad);
-
-    // 2. Xử lý nhập liệu
-    numButtons.forEach(button => {
-        button.addEventListener('mousedown', (e) => {
-            // Ngăn chặn việc mất focus khỏi ô input khi nhấn nút
-            e.preventDefault(); 
-
-            if (button.classList.contains('backspace')) {
-                searchInput.value = searchInput.value.slice(0, -1);
-            } 
-            else if (button.classList.contains('clear')) {
-                searchInput.value = '';
-            } 
-            else if (button.classList.contains('close-btn')) {
-                numpadPopup.classList.remove('show'); // Đóng popup
-                searchInput.blur(); // Bỏ focus input
-            } 
-            else {
-                searchInput.value += button.innerText;
-            }
-
-            // Kích hoạt sự kiện 'input' để các hàm tìm kiếm tự động có thể nhận diện được
-            searchInput.dispatchEvent(new Event('input'));
-        });
-    });
-
-    // 3. Đóng popup khi nhấn ra ngoài vùng search-box
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.search-box')) {
-            numpadPopup.classList.remove('show');
-        }
-    });
 </script>
 </body>
 </html>

@@ -5,6 +5,7 @@ import java.util.List;
 
 @Data
 public class OrderRequest {
+    private String id;   
     private Integer nhanVienId;
     private String khachHangSdt; // Có thể null nếu là khách lẻ
     private Integer tongTien;

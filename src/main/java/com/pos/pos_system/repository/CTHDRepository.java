@@ -10,5 +10,5 @@ import java.util.List;
 @Repository
 public interface CTHDRepository extends JpaRepository<CTHD, CTHDid> {
     // Hàm này giúp lấy ra toàn bộ chi tiết của 1 hóa đơn cụ thể (phục vụ in hóa đơn)
-    List<CTHD> findByHoadonid(Integer hoadonid);
+    List<CTHD> findByHoadonid(String hoadonid);
 }

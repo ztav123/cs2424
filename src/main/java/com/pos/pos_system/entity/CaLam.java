@@ -2,28 +2,37 @@ package com.pos.pos_system.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "CALAM")
 @Data
 public class CaLam {
-    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    // Khóa ngoại liên kết với bảng NHANVIEN
     @ManyToOne
     @JoinColumn(name = "nhanvien_id")
     private NhanVien nhanVien;
 
-    private LocalDate ngaylam;
+    private LocalDateTime batdau;
+    private LocalDateTime ketthuc;
 
-    @Column(name = "tgianbatdau")
-    private LocalTime tgianBatDau;
+    @Column(name = "tienmat_bandau")
+    private Double tienmatBandau;
 
-    @Column(name = "tgianketthuc")
-    private LocalTime tgianKetThuc;
+    @Column(name = "tienmat_ketca")
+    private Double tienmatKetca;
+
+    @Column(name = "tien_nganhang")
+    private Double tienNganhang;
+
+    @Column(name = "tong_doanhthu")
+    private Double tongDoanhthu;
+
+    @Column(name = "tongtien_thucte") // Cột mới thêm
+    private Double tongtienThucte;
+
+    private String ghichu;
 }

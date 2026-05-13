@@ -1,11 +1,14 @@
 package com.pos.pos_system.controller;
 
-import com.pos.pos_system.entity.KetCaLog;
-import com.pos.pos_system.repository.KetCaLogRepository;
+import com.pos.pos_system.entity.CaLam;
+import com.pos.pos_system.repository.CaLamRepository;
+import com.pos.pos_system.service.PdfService; // Thêm import này
+import jakarta.servlet.http.HttpServletResponse; // Thêm import này
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -17,30 +20,41 @@ import java.util.Map;
 @CrossOrigin("*")
 public class KetCaController {
 
-    @Autowired private KetCaLogRepository ketCaLogRepo;
+    @Autowired private CaLamRepository caLamRepo;
+    @Autowired private PdfService pdfService; // Thêm dòng này
 
-    // API 1: Lưu bảng kê đếm tiền vào database
     @PostMapping("/save-log")
-    public ResponseEntity<?> saveLog(@RequestBody Map<String, Integer> payload) {
-        Integer nhanVienId = payload.get("nhanVienId");
-        
-        // Tìm log nháp vừa được AuthService tạo ra ở bước trên
-        KetCaLog log = ketCaLogRepo.findTopByNhanVienIdOrderByThoigianDesc(nhanVienId);
-        if (log == null) return ResponseEntity.badRequest().body("Không tìm thấy ca làm việc cần chốt!");
+    public ResponseEntity<?> saveLog(@RequestBody Map<String, Double> payload) {
+        Integer nhanVienId = payload.get("nhanVienId").intValue(); 
+        Double cashCounted = payload.get("tienmat");
 
-        // Cập nhật số tiền nhân viên đếm được vào log
-        log.setTienmat(payload.get("tienmat"));
-        log.setTongtien(log.getTiennganhang() + payload.get("tienmat"));
+        CaLam shift = caLamRepo.findTopByNhanVienIdOrderByBatdauDesc(nhanVienId);
+        if (shift == null) return ResponseEntity.badRequest().body("Lỗi tìm ca!");
+
+        shift.setTienmatKetca(cashCounted);
+        Double sysBank = shift.getTienNganhang() != null ? shift.getTienNganhang() : 0.0;
+        shift.setTongtienThucte(sysBank + cashCounted);
         
-        ketCaLogRepo.save(log);
-        return ResponseEntity.ok("Cập nhật bảng kê thành công!");
+        caLamRepo.save(shift);
+        return ResponseEntity.ok("Cập nhật thành công!");
     }
 
-    // API 2: Lấy danh sách kết ca trong ngày hôm nay để vẽ lên UI
     @GetMapping("/logs-today")
-    public List<KetCaLog> getLogsToday() {
-        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
-        LocalDateTime endOfDay = LocalDate.now().atTime(LocalTime.MAX);
-        return ketCaLogRepo.findByThoigianBetween(startOfDay, endOfDay);
+    public List<CaLam> getLogsToday() {
+        LocalDateTime start = LocalDate.now().atStartOfDay();
+        LocalDateTime end = LocalDate.now().atTime(LocalTime.MAX);
+        return caLamRepo.findByBatdauBetweenOrderByIdAsc(start, end);
+    }
+
+    // --- ĐÂY LÀ HÀM CÒN THIẾU KHIẾN XUẤT PDF KHÔNG HOẠT ĐỘNG ---
+    @GetMapping("/export-pdf/{id}")
+    public void exportToPDF(HttpServletResponse response, @PathVariable Integer id) throws IOException {
+        response.setContentType("application/pdf");
+        response.setHeader("Content-Disposition", "attachment; filename=BaoCao_" + id + ".pdf");
+
+        CaLam shift = caLamRepo.findById(id).orElse(null);
+        if (shift != null) {
+            pdfService.exportShiftReport(response, shift);
+        }
     }
 }

@@ -192,10 +192,7 @@
          let currentinput = "";
          
          // mock database lưu lịch sử
-         let mockdb = [
-            { id: 1, date: "01/01/2026 23:59", name: "nguyễn văn a", total: 500000, cash: 300000, bank: 200000 },
-            { id: 2, date: "01/01/2026 23:59", name: "trịnh trần phương tuấn", total: 5000000, cash: 0, bank: 5000000 }
-         ];
+
 
          // 2. hàm định dạng tiền tệ (ví dụ: 500000 -> 500.000)
          const formatmoney = (num) => {
@@ -265,45 +262,61 @@
          };
 
          // 6. HÀM FETCH VÀ RENDER LỊCH SỬ TỪ DATABASE THẬT
+         // 6. HÀM FETCH VÀ RENDER LỊCH SỬ TỪ DATABASE
          async function loadLogs() {
             try {
-               const res = await fetch('http://localhost:8080/api/ketca/logs-today');
+               const res = await fetch('http://localhost:8080/api/ketca/logs-today'); // Đã sửa đúng URL
                if (res.ok) {
-                  const dbData = await res.json();
+                  let dbData = await res.json();
                   const logcontainer = document.getElementById("log-container");
                   logcontainer.innerHTML = "";
                   
-                  // Lấy ID người đang giao ca (Nhân viên 1)
+                  // Sắp xếp theo thứ tự ID để hiện số thứ tự cho chuẩn
+                  dbData.sort((a, b) => a.id - b.id);
+                  
                   const handoverId = parseInt(localStorage.getItem('handoverFromId'));
 
-                  dbData.forEach(log => {
-                     // HIỂN THỊ TẤT CẢ LOG TRONG NGÀY
-                     const dateObj = new Date(log.thoigian);
+                  dbData.forEach((log, index) => {
+                     // Sử dụng batdau từ Entity mới
+                     const dateObj = new Date(log.batdau);
                      const dateStr = dateObj.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+                     // Tính toán số liệu
+                     const heThong = log.tongDoanhthu || 0;
+                     const thucTe = log.tongtienThucte || 0;
+                     const chenhLech = thucTe - heThong;
+                     const deviationStyle = chenhLech < 0 ? "color:red; font-weight:bold;" : "color:#1a9e2a; font-weight:bold;";
 
                      const item = document.createElement("div");
                      item.className = "log-item";
                      item.innerHTML = `
-                        <div class="log-index">${log.id}</div>
+                        <div class="log-index">${index + 1}</div>
                         <div class="log-content">
-                           <div class="log-header"><span>${dateStr}</span></div>
+                           <div class="log-header" style="display:flex; justify-content:space-between; align-items:center;">
+                               <span>${dateStr}</span>
+                               <button onclick="downloadPdf(${log.id})" style="background:#0b5aa6; color:white; border:none; border-radius:4px; padding:5px 12px; cursor:pointer; font-weight:bold; font-size:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Xuất PDF</button>
+                           </div>
                            <div class="log-name">${log.nhanVien.hoten}</div>
                            <div class="log-detail">
-                              <span style="color:#cc0000">Cần nộp: ${formatmoney(log.tiencannop)} VNĐ</span>
-                              <span>Tiền mặt đếm được: ${formatmoney(log.tienmat)} VNĐ</span>
-                              <span>Ngân hàng: ${formatmoney(log.tiennganhang)} VNĐ</span>
+                              <span style="color:#0b5aa6">Doanh thu hệ thống: ${formatmoney(heThong)} VNĐ</span>
+                              <span style="color:#1a9e2a">Thực tế đếm được: ${formatmoney(thucTe)} VNĐ</span>
+                              <span style="${deviationStyle}">Chênh lệch: ${formatmoney(chenhLech)} VNĐ</span>
                            </div>
                         </div>
                      `;
                      logcontainer.appendChild(item);
 
-                     // NHƯNG CHỈ bốc số tiền cần nộp của CA ĐANG BÀN GIAO lên panel bên trái
                      if (log.nhanVien.id === handoverId) {
-                         document.getElementById('expected-total').innerText = formatmoney(log.tiencannop - log.tiennganhang) + " đ";
+                         document.getElementById('expected-total').innerText = formatmoney(heThong - (log.tienNganhang || 0)) + " đ";
                      }
                   });
                }
             } catch (error) { console.error("Lỗi tải log", error); }
+         }
+
+         // HÀM TẢI PDF (Mở tab ẩn để trình duyệt tự động tải file)
+         function downloadPdf(id) {
+             window.open(`http://localhost:8080/api/ketca/export-pdf/${id}`, '_blank');
          }
 
          // 7. XỬ LÝ LƯU LOG KHI BẤM "IN BẢNG KÊ" VÀ "XÁC NHẬN"
@@ -319,29 +332,23 @@
             if (!handoverId) return alert("Không tìm thấy thông tin Nhân viên ca trước!");
 
             if (!isLogPrinted) {
-                isProcessing = true; // Bật cờ chặn spam click
-                this.style.opacity = "0.5"; // Làm mờ nút để nhân viên biết máy đang xử lý
+               const cashCounted = rowsdata.reduce((sum, row) => sum + row.total, 0); // Tổng tiền mặt đếm được
 
-                // LẦN 1: BẤM IN BẢNG KÊ (Chỉ lưu cho Nhân viên 1)
-                const grandtotal = rowsdata.reduce((sum, row) => sum + row.total, 0);
+               const payload = {
+                  nhanVienId: handoverId, 
+                  tienmat: cashCounted // Đây là giá trị tienmat_ketca thực tế
+               };
 
-                const payload = {
-                   nhanVienId: handoverId, 
-                   tienmat: grandtotal
-                };
-
-                try {
-                   const res = await fetch('http://localhost:8080/api/ketca/save-log', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(payload)
-                   });
-                   
-                   if(res.ok) {
-                      alert("Đã cập nhật bảng kê của Nhân viên ca trước!");
-                      
-                      // Hiển thị TẤT CẢ log lên màn hình
-                      await loadLogs();
+               try {
+                  const res = await fetch('http://localhost:8080/api/ketca/save-log', {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify(payload)
+                  });
+                  
+                  if(res.ok) {
+                     alert("Đã chốt sổ thực tế thành công!");
+                     await loadLogs();
                       
                       // Thay đổi giao diện nút
                       this.innerHTML = "<span>&#10004;</span> xác nhận";

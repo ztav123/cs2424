@@ -9,19 +9,21 @@ import java.time.LocalDateTime;
 @Data
 public class HoaDon {
     @Id
-    private Integer id;
+    private String id;
 
     @ManyToOne
-    @JoinColumn(name = "khachhang_sdt")
+    @JoinColumn(name = "khach_sdt") 
     private KhachHang khachHang;
 
     @ManyToOne
-    @JoinColumn(name = "nhanvienid")
+    @JoinColumn(name = "nhanvien_id") 
     private NhanVien nhanVien;
 
-    @Column(name = "ngaylap")
-    private LocalDateTime ngayLap;
+    private LocalDateTime ngaylap;
+    private Double tongtien;
+    private Double giamgia;
 
+    @Column(name = "phuongthuc_tt")
+    private String phuongthucTt;
     private String trangthai;
-    private Integer tongtien;
 }

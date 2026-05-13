@@ -2,10 +2,8 @@ package com.pos.pos_system.controller;
 
 import com.pos.pos_system.entity.SanPham;
 import com.pos.pos_system.entity.KhachHang;
-import com.pos.pos_system.entity.Kho;
 import com.pos.pos_system.repository.SanPhamRepository;
 import com.pos.pos_system.repository.KhachHangRepository;
-import com.pos.pos_system.repository.KhoRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -17,8 +15,6 @@ import java.util.List;
 @RequestMapping("/api/store")
 @CrossOrigin("*")
 public class StoreController {
-    @Autowired
-    private KhoRepository khoRepo;
     
     @Autowired
     private SanPhamRepository sanPhamRepo;
@@ -31,16 +27,12 @@ public class StoreController {
     public List<SanPham> getAllProducts() {
         return sanPhamRepo.findAll();
     }
-    @GetMapping("/kho")
-    public List<Kho> getAllKho() {
-        return khoRepo.findAll();
-    }
     // Tạo khách hàng mới
     @PostMapping("/khachhang")
     public ResponseEntity<?> createKhachHang(@RequestBody KhachHang khachHang) {
-        // Đặt mặc định ngày lập là hôm nay và điểm = 0
-        khachHang.setNgayLap(java.time.LocalDate.now());
-        khachHang.setDiem(0);
+        // Cập nhật tên hàm cho khớp với Entity mới
+        khachHang.setNgaytao(java.time.LocalDate.now());
+        khachHang.setDiemtichluy(0);
         
         KhachHang saved = khachHangRepo.save(khachHang);
         return ResponseEntity.ok(saved);

@@ -1,21 +1,23 @@
 package com.pos.pos_system.entity;
+
 import jakarta.persistence.*;
 import lombok.Data;
-import java.time.LocalDate;
 
 @Entity
 @Table(name = "NHANVIEN")
 @Data
 public class NhanVien {
     @Id
-    private Integer id; // Khóa chính bạn tự nhập (VD: 24521487)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id; 
 
     private String hoten;
     private String sdt;
-    private String diachi;
-
-    @Column(name = "ngayvaolam")
-    private LocalDate ngayVaoLam;
-
     private String mkdangnhap;
+
+    // Thêm các cột quản lý phân quyền mới
+    private String vaitro; 
+    private Integer trangthai;
+    
+    // ĐÃ XÓA: diachi, ngayVaoLam (để hệ thống tinh gọn)
 }

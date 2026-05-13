@@ -443,7 +443,7 @@
                 const userData = await response.json();
                 
                 // KIỂM TRA ROLE
-                if (userData.role === 'QuanLy') {
+                if (userData.role === 'ADMIN') {
                     if (isHandover === 'true' || verifyNhanVien2) {
                         document.getElementById("loginresult").innerHTML = "Hệ thống đang trong quá trình chuyển ca, Quản lý không thể thao tác lúc này!";
                         isLoggingIn = false;

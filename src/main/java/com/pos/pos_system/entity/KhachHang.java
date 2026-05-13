@@ -9,12 +9,13 @@ import java.time.LocalDate;
 @Data
 public class KhachHang {
     @Id
-    private String sdt; // Khóa chính là số điện thoại
+    private String sdt; 
 
-    private String ten;
+    @Column(name = "hoten") // Đổi ten -> hoten
+    private String hoten;
 
-    @Column(name = "ngaylap")
-    private LocalDate ngayLap;
+    @Column(name = "diemtichluy") // Đổi diem -> diemtichluy
+    private Integer diemtichluy;
 
-    private Integer diem;
+    private LocalDate ngaytao; // Đổi ngayLap -> ngaytao
 }

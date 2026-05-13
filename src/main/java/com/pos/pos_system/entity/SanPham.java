@@ -16,7 +16,12 @@ public class SanPham {
     @Column(name = "image_url")
     private String imageUrl;
 
-    @ManyToOne
-    @JoinColumn(name = "voucherid") // Tên cột khóa ngoại trong DB
-    private Voucher voucher;
+    private Integer tonkho;
+    public Integer getTonkho() {
+        return this.tonkho != null ? this.tonkho : 0;
+    }
+
+    public void setTonkho(Integer tonkho) {
+        this.tonkho = tonkho;
+    }
 }

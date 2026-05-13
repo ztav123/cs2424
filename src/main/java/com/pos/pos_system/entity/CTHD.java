@@ -4,13 +4,16 @@ import lombok.Data;
 
 @Entity
 @Table(name = "CTHD")
-@IdClass(CTHDid.class) // Kết nối với class định danh ở trên
+@IdClass(CTHDid.class) 
 @Data
 public class CTHD {
+    
     @Id
-    private Integer hoadonid;
+    @Column(name = "hoadon_id")
+    private String hoadonid;
 
     @Id
+    @Column(name = "sanpham_id") // BỔ SUNG DÒNG NÀY
     private Integer sanphamid;
 
     private Integer soluong;
