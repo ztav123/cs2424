@@ -9,6 +9,9 @@ import java.util.List;
 
 @Repository
 public interface HoaDonRepository extends JpaRepository<HoaDon, String> {
-    // Thêm hàm này vào:
+    // Lọc theo cả nhân viên và khoảng thời gian
     List<HoaDon> findByNhanVienIdAndNgaylapBetween(Integer nhanVienId, LocalDateTime start, LocalDateTime end);
+    
+    // Lọc CHỈ theo khoảng thời gian (Dành cho chức năng "Tất cả nhân viên")
+    List<HoaDon> findByNgaylapBetween(LocalDateTime start, LocalDateTime end);
 }

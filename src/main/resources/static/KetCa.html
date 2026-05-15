@@ -282,10 +282,11 @@
                      const dateStr = dateObj.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
 
                      // Tính toán số liệu
+                     const tienmatBandau = log.tienmatBandau || 0;
                      const heThong = log.tongDoanhthu || 0;
                      const thucTe = log.tienmatKetca || 0;
                      const tienNganhang = log.tienNganhang || 0;
-                     const canNop = heThong - tienNganhang;
+                     const canNop = heThong - tienNganhang + tienmatBandau;
                      const chenhLech = thucTe - canNop;
                      const deviationStyle = chenhLech < 0 ? "color:red; font-weight:bold;" : "color:#1a9e2a; font-weight:bold;";
 

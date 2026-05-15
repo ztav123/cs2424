@@ -75,6 +75,47 @@ create table CTHD (
     constraint fk_cthd_sp foreign key (sanpham_id) references SANPHAM(id)
 );
 
+-- TRIGGER: Tự động gán tienmat_bandau khi tạo ca làm mới
+CREATE OR REPLACE TRIGGER trg_calam_tienmat_bandau
+FOR INSERT ON CALAM
+COMPOUND TRIGGER
+
+    -- Biến toàn cục trong trigger để lưu tiền kết ca của ca trước đó
+    v_tien_ketca_truoc CALAM.tienmat_ketca%TYPE := 0;
+
+    -- 1. BEFORE STATEMENT: Chạy duy nhất 1 lần trước khi câu lệnh INSERT bắt đầu
+    BEFORE STATEMENT IS
+    BEGIN
+        BEGIN
+            -- Tìm tienmat_ketca của ca làm việc gần nhất (ID lớn nhất)
+            SELECT tienmat_ketca INTO v_tien_ketca_truoc
+            FROM CALAM
+            ORDER BY id DESC
+            FETCH FIRST 1 ROWS ONLY;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                -- Xử lý trường hợp ID = 1 (bảng chưa có dòng nào)
+                v_tien_ketca_truoc := 0;
+        END;
+    END BEFORE STATEMENT;
+
+    -- 2. BEFORE EACH ROW: Chạy cho mỗi dòng chuẩn bị được INSERT vào
+    BEFORE EACH ROW IS
+    BEGIN
+        -- Gán tiền mặt ban đầu bằng tiền kết ca của ca trước
+        -- Chỉ tự động gán nếu người dùng để mặc định là 0 hoặc không truyền vào (NULL)
+        IF :NEW.tienmat_bandau = 0 OR :NEW.tienmat_bandau IS NULL THEN
+            :NEW.tienmat_bandau := NVL(v_tien_ketca_truoc, 0);
+        END IF;
+
+        -- Cập nhật lại biến để đề phòng trường hợp bạn INSERT nhiều dòng cùng lúc (INSERT ALL)
+        -- Dòng thứ 2 sẽ lấy giá trị của dòng thứ 1 vừa tạo
+        v_tien_ketca_truoc := NVL(:NEW.tienmat_ketca, 0);
+    END BEFORE EACH ROW;
+
+END trg_calam_tienmat_bandau;
+
+
 -- INDEX TỐI ƯU (Chỉ giữ lại những cái thực sự cần thiết)
 create index idx_sp_ten on SANPHAM(ten);
 create index idx_hd_ngay on HOADON(ngaylap);

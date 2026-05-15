@@ -1,28 +1,39 @@
 package com.pos.pos_system.controller;
 
 import com.pos.pos_system.entity.SanPham;
-import com.pos.pos_system.service.SanPhamService;
+import com.pos.pos_system.repository.SanPhamRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
-@RestController // Đánh dấu lớp này là API Controller, mọi dữ liệu trả về sẽ tự động chuyển thành chuỗi JSON.
-@RequestMapping("/api/sanpham") // Khai báo đường dẫn gốc cho mọi API trong lớp này.
-@CrossOrigin("*") // Rất quan trọng: Cho phép file HTML chạy ở localhost gọi được API này mà không bị lỗi bảo mật trình duyệt (CORS).
+@RestController
+@RequestMapping("/api/sanpham")
+@CrossOrigin("*") 
 public class SanPhamController {
 
     @Autowired
-    private SanPhamService sanPhamService;
+    private SanPhamRepository repo;
 
-    // Khi Frontend gọi GET http://localhost:8080/api/sanpham, hàm này sẽ chạy
+    // Lấy toàn bộ sản phẩm
     @GetMapping
-    public List<SanPham> getDanhSachSanPham() {
-        return sanPhamService.layTatCaSanPham();
+    public List<SanPham> getAll() {
+        return repo.findAll();
     }
 
-    // Khi Frontend gọi GET http://localhost:8080/api/sanpham/123 (quét mã vạch 123), hàm này sẽ chạy
-    @GetMapping("/{id}")
-    public SanPham getChiTietSanPham(@PathVariable Integer id) {
-        return sanPhamService.timSanPhamTheoId(id);
+    // Thêm sản phẩm mới
+    @PostMapping
+    public SanPham create(@RequestBody SanPham sp) {
+        return repo.save(sp);
+    }
+
+    // Cập nhật hoặc Xóa mềm (Set tồn kho = 0)
+    @PutMapping("/{id}")
+    public SanPham update(@PathVariable Integer id, @RequestBody SanPham spDetails) {
+        SanPham sp = repo.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy SP"));
+        sp.setTen(spDetails.getTen());
+        sp.setCategory(spDetails.getCategory());
+        sp.setGiaban(spDetails.getGiaban());
+        sp.setTonkho(spDetails.getTonkho());
+        return repo.save(sp);
     }
 }

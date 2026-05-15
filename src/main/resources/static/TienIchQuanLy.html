@@ -1,225 +1,441 @@
 <!DOCTYPE html>
 <html lang="vi">
-   <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>pos thu ngân - 1440:1024</title>
-      <style>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiện Ích Quản Lý - CS24H</title>
+    <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #2c3338; height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; overflow: hidden; }
         
-        /* Đảm bảo body chiếm trọn màn hình JavaFX */
-        body { 
-            background-color: #2c3338; 
-            height: 100vh; 
-            width: 100vw; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            overflow: hidden; 
-        }
-
         .pos-wrapper {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            height: 100%;
-            background-color: #eaf1f7;
-            gap: 20px; 
-            padding: 20px;
+            aspect-ratio: 1440 / 1024; max-width: 100vw; max-height: 100vh;
+            display: flex; flex-direction: column; width: 100%; height: 100%;
+            background-color: #eaf1f7; gap: 15px; padding: 15px;
         }
         
-        .header { 
-            background-color: #0b5aa6; 
-            color: white; 
-            border-radius: 12px; 
-            padding: 0 20px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            flex-shrink: 0; 
-            height: 80px; 
-        }
-
+        /* HEADER - Giữ nguyên của bạn */
+        .header { background-color: #0b5aa6; color: white; border-radius: 12px; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; height: 60px; }
         .header-left { display: flex; align-items: center; gap: 20px; height: 100%;}
-        .logo-container { height: 70%; display: flex; align-items: center; background: white; border-radius: 8px; padding: 5px; }
-        .logo-container img { max-height: 100%; object-fit: contain; }
+        .logo-container { height: 100%; display: flex; align-items: center; background: white; border-radius: 8px; padding: 5px; font-weight: bold; color: #0b5aa6;}
         .user-info { display: flex; flex-direction: column; justify-content: center;}
         .user-info span:first-child { font-size: 0.8rem; opacity: 0.8; }
         .user-info span:last-child { font-weight: bold; font-size: 1.1rem; }
-        
         .header-right { display: flex; align-items: center; gap: 40px; }
-        .datetime { font-weight: bold; font-size: 1.1rem; min-width: 220px; text-align: right;} 
+        .header-actions { display: flex; gap: 25px; }
+        .action-icon { display: flex; flex-direction: column; align-items: center; font-size: 0.9rem; cursor: pointer; transition: 0.2s;}
+        .action-icon:hover { transform: scale(1.1); }
+        .datetime { font-weight: bold; font-size: 1.1rem; min-width: 200px; text-align: right;} 
+
+        /* MAIN CONTENT AREA */
+        .main-content {
+            display: flex; gap: 15px; flex: 1; overflow: hidden;
+        }
+
+        /* SIDEBAR NAVIGATOR */
+        .sidebar {
+            width: 200px; background-color: white; border-radius: 12px; padding: 15px 0;
+            display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .nav-item {
+            padding: 15px 20px; font-size: 1.1rem; cursor: pointer; color: #444; border-left: 4px solid transparent; transition: 0.3s;
+        }
+        .nav-item:hover { background-color: #f0f5fa; }
+        .nav-item.active { background-color: #eaf1f7; font-weight: bold; color: #0b5aa6; border-left-color: #0b5aa6; }
+
+        /* CONTAINER (Bên phải) */
+        .container-right {
+            flex: 1; background-color: white; border-radius: 12px; position: relative;
+            display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        /* BẢNG DỮ LIỆU */
+        .table-wrapper { flex: 1; overflow-y: auto; padding: 15px; }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background-color: #f8f9fa; position: sticky; top: -15px; z-index: 10; }
+        th { padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; cursor: pointer; user-select: none; position: relative; }
+        th:hover { background-color: #e9ecef; }
+        td { padding: 12px; border-bottom: 1px solid #dee2e6; word-wrap: break-word; white-space: normal; }
         
-        /* Main container điều phối không gian */
-        .main-container { 
-            display: flex; 
-            flex: 1; 
-            overflow: hidden; 
-            justify-content: center; 
-            align-items: stretch; /* Ép các con cao bằng nhau */
-            gap: 25px;
-        }
+        /* Cột Search Input trong Header */
+        .search-input { display: none; width: 100%; padding: 4px; margin-top: 5px; font-size: 0.9rem; border: 1px solid #ccc; border-radius: 4px; }
+        th.show-search .search-input { display: block; }
 
-        .side-banner {
-            flex: 1; /* Chiếm 1 phần */
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: white;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        }
+        /* Focus Dòng */
+        tbody tr { cursor: pointer; transition: 0.2s; }
+        tbody tr:hover { background-color: #f1f8ff; }
+        tbody tr.focused { background-color: #cce5ff; font-weight: 500; }
 
-        .side-banner img {
-            width: 90%;
-            height: 90%;
-            object-fit: contain;
+        /* FLOATING ACTION BUTTON (Nút xanh) */
+        .fab {
+            position: absolute; bottom: 20px; right: 20px;
+            width: 60px; height: 60px; border-radius: 50%; background-color: #28a745;
+            color: white; font-size: 30px; border: none; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.4); display: flex; justify-content: center; align-items: center; transition: 0.3s;
         }
+        .fab:hover { background-color: #218838; transform: scale(1.05); }
 
-        /* Widget Grid - Phần quan trọng nhất */
-        .widget-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            grid-template-rows: repeat(2, 1fr);
-            gap: 25px;
-            flex: 2; /* Chiếm 2 phần (rộng gấp đôi banner) */
-            aspect-ratio: 1 / 1; /* Giữ khung vuông */
-            max-height: 100%; /* Không được cao quá main-container */
+        /* MODAL */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center;
         }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: #0b5aa6; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 0.9rem; color: #555; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-cancel { background-color: #e2e6ea; color: #333; }
+        .btn-save { background-color: #0b5aa6; color: white; }
 
-        .widget-box {
-            position: relative;
-            overflow: hidden;
-            background-color: white;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: #0b5aa6;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            
-            /* SỬA LỖI: Cố định kích thước box */
-            width: 100%;
-            height: 100%;
-        }
-
-        .widget-box:active { transform: scale(0.96); }
-
-        .widget-text {
-            position: relative;
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        .widget-slide-img {
-            padding: 15%;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: white;
-            transition: top 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-            z-index: 3;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .widget-slide-img img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
-
-        .widget-box.active .widget-slide-img {
-            top: 0;
-        }
-      </style>
-   </head>
-   <body>
-      <div class="pos-wrapper">
-         <header class="header">
+        /* KHU VỰC THỐNG KÊ */
+        .dashboard-wrapper { display: none; padding: 20px; flex-direction: column; gap: 20px; height: 100%; }
+        .stats-cards { display: flex; gap: 20px; }
+        .card { flex: 1; background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 5px solid #0b5aa6; }
+        .card h3 { font-size: 0.9rem; color: #666; margin-bottom: 10px; }
+        .card .value { font-size: 1.5rem; font-weight: bold; color: #333; }
+        .chart-placeholder { flex: 1; border: 2px dashed #ccc; border-radius: 8px; display: flex; justify-content: center; align-items: center; color: #999; }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+</head>
+<body>
+    <div class="pos-wrapper">
+        <header class="header">
             <div class="header-left">
-               <div class="logo-container"><img src=".\img\logo.png" alt="Logo"></div>
-               <div class="user-info"><span>ID: 001</span><span>Tên: Quản trị viên</span></div>
+                <div class="logo-container">CS24H POS</div>
+                <div class="user-info"><span>ID: 12345</span><span>Lâm Thành Vinh (Quản lý)</span></div>
             </div>
             <div class="header-right">
-               <div class="datetime" id="live-clock">đang tải...</div>
-               <div class="action-icon" id="btn-thoat" style="cursor:pointer; font-size: 1.5rem;">
-                <img src =".\img\Logout.png" style="height: 24px;object-fit: contain;filter: invert(100%);display: flex;align-items: center;" ><span style="margin-left: 5px; color: white;font-size:0.9rem ;align-items: center;display: flex;">Thoát</span>
+                <div class="header-actions">
+                    <div class="action-icon" id="btn-quay-lai"><span>🚪</span><span>Quay lại</span></div>
+                </div>
+                <div class="datetime" id="live-clock">Đang tải...</div>
             </div>
-            </div>
-         </header>
-         
-         <main class="main-container">
-            <!-- Banner Trái -->
-            <div class="side-banner">
-                <img src=".\img\angel.png" alt="Banner Left" style="transform: scaleX(-1);">
-            </div>
+        </header>
 
-            <!-- Grid Trung tâm -->
-            <div class="widget-grid">
-                <div class="widget-box" onclick="this.classList.toggle('active')">
-                    <span class="widget-text">Xem hóa đơn</span>
-                    <div class="widget-slide-img">
-                        <img src=".\img\HoaDon.png" alt="Invoice">
-                    </div>
-                </div>
-                <div class="widget-box" onclick="this.classList.toggle('active')">
-                    <span class="widget-text">Báo cáo</span>
-                    <div class="widget-slide-img">
-                        <img src=".\img\Report.png" alt="Report">
-                    </div>
-                </div>
-                <div class="widget-box" onclick="this.classList.toggle('active')">
-                    <span class="widget-text">Nhập kho</span>
-                    <div class="widget-slide-img">
-                        <img src=".\img\Warehouse.png" alt="Warehouse">
-                    </div>
-                </div>
-                <div class="widget-box" onclick="this.classList.toggle('active')">
-                    <span class="widget-text">Nhân sự</span>
-                    <div class="widget-slide-img">
-                        <img src=".\img\HR.png" alt="HR">
-                    </div>
-                </div>
-            </div>
+        <div class="main-content">
+            <nav class="sidebar">
+                <div class="nav-item active" data-target="sp">📦 Sản phẩm</div>
+                <div class="nav-item" data-target="nv">👥 Nhân sự</div>
+                <div class="nav-item" data-target="hd">🧾 Hóa đơn</div>
+                <div class="nav-item" data-target="tk">📊 Thống kê</div>
+            </nav>
 
-            <!-- Banner Phải -->
-            <div class="side-banner">
-                <img src=".\img\angel.png" alt="Banner Right">
-            </div>
-         </main>
-      </div>
+            <div class="container-right">
+                
+                <div class="table-wrapper" id="table-view">
+                    <table id="main-table">
+                        <thead>
+                            <tr id="table-header">
+                                </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            </tbody>
+                    </table>
+                </div>
 
-      <script>
-        document.getElementById('btn-thoat').addEventListener('click', function() {
-            window.location.href = 'login.html';
+                <div class="dashboard-wrapper" id="dashboard-view">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="date" id="date-from"> <label>-</label> <input type="date" id="date-to">
+                        <select id="nv-filter"><option>Tất cả nhân viên</option></select>
+                        <button class="btn btn-save">Lọc</button>
+                    </div>
+                    <div class="stats-cards">
+                        <div class="card"><h3>Tổng Doanh Thu</h3><div class="value">15.000.000 đ</div></div>
+                        <div class="card"><h3>Số Đơn Hàng</h3><div class="value">124</div></div>
+                        <div class="card"><h3>SP Bán Chạy Nhất</h3><div class="value">Mì Hảo Hảo</div></div>
+                    </div>
+                    <div class="chart-placeholder">
+                        [Khu vực này để sau này chèn thư viện Chart.js vẽ biểu đồ]
+                    </div>
+                </div>
+
+                <button class="fab" id="fab-btn">+</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="form-modal">
+        <div class="modal-content">
+            <div class="modal-header" id="modal-title">Thêm mới</div>
+            <div id="modal-form-body">
+                </div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" onclick="closeModal()">Hủy</button>
+                <button class="btn btn-save" onclick="saveData()">Lưu thông tin</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- 1. Đồng Hồ ---
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('live-clock').textContent = now.toLocaleString('vi-VN');
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    // --- 2. Cấu hình API & Trạng thái ---
+    const API_BASE = 'http://localhost:8080/api';
+    const apiEndpoints = { sp: '/sanpham', nv: '/nhanvien', hd: '/hoadon' };
+
+    let currentTab = 'sp'; 
+    let focusedRowData = null; 
+    let sortConfig = { column: null, order: 'asc' };
+    
+    const colDef = {
+        sp: ['id', 'ten', 'category', 'giaban', 'tonkho'],
+        nv: ['id', 'hoten', 'sdt', 'vaitro', 'trangthai'],
+        hd: ['id', 'khachHang', 'ngaylap', 'tongtien', 'trangthai']
+    };
+
+    const colNames = {
+        id: 'ID', ten: 'Tên Sản Phẩm', category: 'Danh mục', giaban: 'Giá Bán', tonkho: 'Tồn Kho',
+        hoten: 'Họ Tên', sdt: 'SĐT', vaitro: 'Vai Trò', trangthai: 'Trạng Thái',
+        khachHang: 'Khách Hàng', ngaylap: 'Ngày Lập', tongtien: 'Tổng Tiền'
+    };
+
+    // Cá nhân hóa
+    document.querySelector('.user-info span:first-child').textContent = `MSSV: 24522012`;
+
+    // --- 3. FETCH GET: RENDER TABLE ---
+    async function loadAndRenderTable() {
+        if (currentTab === 'tk') return;
+
+        const head = document.getElementById('table-header');
+        const body = document.getElementById('table-body');
+        head.innerHTML = '<th>Đang tải dữ liệu...</th>'; body.innerHTML = '';
+
+        try {
+            const response = await fetch(API_BASE + apiEndpoints[currentTab]);
+            const data = await response.json();
+            const cols = colDef[currentTab];
+
+            head.innerHTML = `<th>#</th>` + cols.map(col => `<th>${colNames[col]}</th>`).join('');
+
+            data.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.onclick = () => focusRow(tr, row);
+                
+                let rowHtml = `<td>${index + 1}</td>`;
+                cols.forEach(col => {
+                    let cellValue = row[col] !== null ? row[col] : '';
+                    if (col === 'khachHang' && cellValue) cellValue = cellValue.sdt;
+                    if (col === 'giaban' || col === 'tongtien') cellValue = Number(cellValue).toLocaleString() + ' đ';
+                    if (col === 'trangthai' && currentTab === 'nv') {
+                        cellValue = cellValue === 1 ? '<span style="color:green; font-weight:bold;">Đang làm</span>' : '<span style="color:red">Nghỉ việc</span>';
+                    }
+                    if (col === 'tonkho') {
+                        cellValue = cellValue > 0 ? cellValue : '<span style="color:red">Hết hàng</span>';
+                    }
+                    rowHtml += `<td>${cellValue}</td>`;
+                });
+                tr.innerHTML = rowHtml;
+                body.appendChild(tr);
+            });
+            focusedRowData = null;
+            updateFabIcon();
+        } catch (error) {
+            console.error("Lỗi khi fetch data:", error);
+            head.innerHTML = '<th style="color:red">Lỗi kết nối Server! Vui lòng bật Spring Boot.</th>';
+        }
+    }
+
+    // --- 4. Tương tác Focus ---
+    function focusRow(trElement, rowData) {
+        document.querySelectorAll('#table-body tr').forEach(tr => tr.classList.remove('focused'));
+        if (focusedRowData && focusedRowData.id === rowData.id) {
+            focusedRowData = null; 
+        } else {
+            trElement.classList.add('focused');
+            focusedRowData = rowData; 
+        }
+        updateFabIcon();
+    }
+
+    // --- 5. FAB & Modal Logic ---
+    const fabBtn = document.getElementById('fab-btn');
+    const modal = document.getElementById('form-modal');
+
+    function updateFabIcon() {
+        if (currentTab === 'hd') {
+            fabBtn.innerHTML = '👁️'; 
+            fabBtn.style.display = focusedRowData ? 'flex' : 'none';
+        } else {
+            fabBtn.style.display = 'flex';
+            fabBtn.innerHTML = focusedRowData ? '✏️' : '+'; 
+        }
+    }
+
+    fabBtn.onclick = () => { if (!(currentTab === 'hd' && !focusedRowData)) openModal(); };
+
+    function openModal() {
+        const title = document.getElementById('modal-title');
+        const formBody = document.getElementById('modal-form-body');
+        formBody.innerHTML = '';
+
+        if (currentTab === 'hd') {
+            title.innerText = 'Chi tiết Hóa Đơn';
+            formBody.innerHTML = `<p>ID: ${focusedRowData.id}</p><p>Tổng: ${Number(focusedRowData.tongtien).toLocaleString()} đ</p>`;
+            document.querySelector('.btn-save').style.display = 'none';
+        } else {
+            document.querySelector('.btn-save').style.display = 'inline-block';
+            const isEdit = focusedRowData !== null;
+            title.innerText = isEdit ? 'Sửa thông tin' : 'Thêm mới';
+
+            colDef[currentTab].forEach(col => {
+                if (col === 'id' && !isEdit) return; 
+                const value = isEdit ? focusedRowData[col] : '';
+                let inputHtml = `<input type="text" id="input-${col}" value="${value}" ${col === 'id' ? 'disabled' : ''}>`;
+                if (col === 'trangthai' && currentTab === 'nv') {
+                    inputHtml = `<select id="input-${col}">
+                                    <option value="1" ${value == 1 ? 'selected' : ''}>Đang làm</option>
+                                    <option value="0" ${value == 0 ? 'selected' : ''}>Nghỉ việc</option>
+                                 </select>`;
+                }
+                formBody.innerHTML += `<div class="form-group"><label>${colNames[col]}</label>${inputHtml}</div>`;
+            });
+        }
+        modal.style.display = 'flex';
+    }
+
+    function closeModal() { modal.style.display = 'none'; }
+
+    async function saveData() {
+        const payload = {};
+        colDef[currentTab].forEach(col => {
+            const input = document.getElementById(`input-${col}`);
+            if(input && !input.disabled) payload[col] = input.value;
         });
 
-        function updateDateTime() {
-            const now = new Date();
-            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            
-            const dayName = days[now.getDay()];
-            const monthName = months[now.getMonth()];
-            const dateNumber = now.getDate();
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            
-            const timeString = `${dayName} ${monthName} ${dateNumber} ${hours}:${minutes}:${seconds}`;
-            document.getElementById('live-clock').textContent = timeString;
+        if(currentTab === 'nv' && !focusedRowData) payload.mkdangnhap = "123456"; 
+
+        const isEdit = focusedRowData !== null;
+        const endpoint = API_BASE + apiEndpoints[currentTab] + (isEdit ? `/${focusedRowData.id}` : '');
+        const method = isEdit ? 'PUT' : 'POST';
+
+        try {
+            const res = await fetch(endpoint, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                alert('Lưu thành công!');
+                closeModal();
+                loadAndRenderTable();
+            } else { alert('Có lỗi xảy ra: ' + res.status); }
+        } catch (err) { alert('Lỗi kết nối mạng!'); }
+    }
+
+    // --- 6. LOGIC THỐNG KÊ (Đã fix lỗi ngày tháng) ---
+
+    // Kích hoạt bộ lịch Flatpickr cho 2 ô input (Giải quyết vấn đề JavaFX không hiện lịch)
+    flatpickr("#date-from", { dateFormat: "d/m/Y" });
+    flatpickr("#date-to", { dateFormat: "d/m/Y" });
+
+    async function loadNhanVienFilter() {
+        const select = document.getElementById('nv-filter');
+        if (select.options.length > 1) return; 
+        try {
+            const res = await fetch(`${API_BASE}/nhanvien`);
+            const nvs = await res.json();
+            nvs.forEach(nv => {
+                let opt = document.createElement('option');
+                opt.value = nv.id;
+                opt.textContent = nv.hoten;
+                select.appendChild(opt);
+            });
+        } catch (e) { console.error("Không tải được ds nhân viên", e); }
+    }
+
+    async function fetchThongKe() {
+        let dateFrom = document.getElementById('date-from').value;
+        let dateTo = document.getElementById('date-to').value;
+        const nvId = document.getElementById('nv-filter').value;
+
+        // Hàm helper: Chuyển đổi Ngày/Tháng/Năm (dd/MM/yyyy) thành Năm-Tháng-Ngày (yyyy-MM-dd)
+        function normalizeDate(dateStr) {
+            if (!dateStr) return null;
+            if (dateStr.includes('/')) {
+                const parts = dateStr.split('/');
+                if (parts.length === 3) {
+                    return `${parts[2]}-${parts[1]}-${parts[0]}`; 
+                }
+            }
+            return dateStr;
         }
-        setInterval(updateDateTime, 1000); 
-        updateDateTime();   
-      </script>
-   </body>
-</html> 
+
+        dateFrom = normalizeDate(dateFrom);
+        dateTo = normalizeDate(dateTo);
+
+        // Chuẩn hóa format ISO cho LocalDateTime của Java (Đã fix chuẩn 100%)
+        const startStr = dateFrom ? `${dateFrom}T00:00:00` : "2000-01-01T00:00:00";
+        const endStr = dateTo ? `${dateTo}T23:59:59` : new Date().toISOString().split('.')[0];
+
+        let url = `${API_BASE}/thongke/doanhthu?from=${startStr}&to=${endStr}`;
+        if (nvId && nvId !== 'Tất cả nhân viên') url += `&nhanVienId=${nvId}`;
+
+        try {
+            // Set loading text
+            const cards = document.querySelectorAll('.card .value');
+            cards[0].textContent = "Đang tính...";
+            cards[1].textContent = "...";
+
+            const res = await fetch(url);
+            
+            // Bắt lỗi nếu Spring Boot vẫn trả về lỗi (Code 400, 500)
+            if (!res.ok) {
+                throw new Error("Lỗi Server: " + res.status);
+            }
+            
+            const data = await res.json();
+
+            // Render dữ liệu
+            cards[0].textContent = Number(data.tongDoanhThu).toLocaleString() + ' đ';
+            cards[1].textContent = data.soDonHang;
+            cards[2].textContent = "Tính năng Đang Dev"; 
+        } catch (err) {
+            console.error("Lỗi thống kê:", err);
+            const cards = document.querySelectorAll('.card .value');
+            cards[0].textContent = "Lỗi dữ liệu";
+            cards[1].textContent = "0";
+        }
+    }
+
+    document.querySelector('#dashboard-view .btn-save').onclick = fetchThongKe;
+
+    // --- 7. Chuyển Tab ---
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.onclick = async (e) => {
+            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            currentTab = e.target.getAttribute('data-target');
+            focusedRowData = null; // Reset focus
+            
+            if (currentTab === 'tk') {
+                document.getElementById('table-view').style.display = 'none';
+                document.getElementById('dashboard-view').style.display = 'flex';
+                fabBtn.style.display = 'none';
+                
+                // Load data
+                await loadNhanVienFilter();
+                fetchThongKe();
+            } else {
+                document.getElementById('table-view').style.display = 'block';
+                document.getElementById('dashboard-view').style.display = 'none';
+                loadAndRenderTable();
+            }
+        };
+    });
+
+    // Khởi chạy khi mở trang
+    loadAndRenderTable();
+</script>
+</script>
+</body>
+</html>
