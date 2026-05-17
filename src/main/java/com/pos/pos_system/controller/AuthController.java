@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin("*") // Mở CORS để Frontend ở mọi port có thể gọi tới[cite: 9]
@@ -33,4 +34,22 @@ public class AuthController {
         // Trả về HTTP Status 401 (Unauthorized) nếu đăng nhập thất bại[cite: 9]
         return ResponseEntity.status(401).body("Sai thông tin đăng nhập");
     }
+    @PostMapping("/exit")
+    public ResponseEntity<?> exit(
+            @RequestParam Integer id, 
+            @RequestParam String password) { 
+
+        Map<String, Object> result = authService.employeeExit(id, password);
+        
+        if (result != null) {
+            // Trả về HTTP Status 200 (OK) và data Map dạng JSON[cite: 9]
+            return ResponseEntity.ok(result);
+        }
+        
+        // Trả về HTTP Status 401 (Unauthorized) nếu đăng nhập thất bại[cite: 9]
+        return ResponseEntity.status(401).body("Chỉ có quản lý mới có thể cho nhân viên đăng xuất!");
+    
+
+    }
+    
 }

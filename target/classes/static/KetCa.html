@@ -261,7 +261,6 @@
             rendertable();
          };
 
-         // 6. HÀM FETCH VÀ RENDER LỊCH SỬ TỪ DATABASE THẬT
          // 6. HÀM FETCH VÀ RENDER LỊCH SỬ TỪ DATABASE
          async function loadLogs() {
             try {
@@ -345,15 +344,17 @@
             
             const handoverId = parseInt(localStorage.getItem('handoverFromId')); // ID Nhân viên 1
             const currentNhanVienId = localStorage.getItem('currentNhanVienId'); // ID Nhân viên 2
-
-            if (!handoverId) return alert("Không tìm thấy thông tin Nhân viên ca trước!");
+            const currentQuanLyId = localStorage.getItem('currentQuanLyId'); // ID Quản lý (nếu có)
+            const isExit = localStorage.getItem('isExit'); // Kiểm tra nếu đang trong quá trình dang xuat
+            if(!isExit && !handoverId) return alert("Không tìm thấy thông tin Nhân viên ca trước!");
 
             if (!isLogPrinted) {
                const cashCounted = rowsdata.reduce((sum, row) => sum + row.total, 0); // Tổng tiền mặt đếm được
 
                const payload = {
                   nhanVienId: handoverId, 
-                  tienmat: cashCounted // Đây là giá trị tienmat_ketca thực tế
+                  tienmat: cashCounted, // Đây là giá trị tienmat_ketca thực tế
+                  quanly: false
                };
 
                try {
@@ -388,7 +389,10 @@
                   const handoverId = localStorage.getItem('handoverFromId');
 
                   // Chỉ tạo cờ verify nếu thực sự đang có một luồng chuyển ca (có nhân viên bàn giao)
-                  if (handoverId) {
+                  if (isExit) {
+                     localStorage.setItem('verifyNhanVien2', currentQuanLyId);
+                     alert("Quản lý đăng nhập lại lần nữa để cho thằng em đăng xuất.");
+                  } else if (handoverId) {
                      localStorage.setItem('verifyNhanVien2', currentNhanVienId);
                      alert("Xác nhận chốt ca thành công! Nhân viên nhận ca vui lòng đăng nhập lại để xác minh.");
                   } else {
@@ -400,6 +404,7 @@
                   localStorage.removeItem('isHandover');
                   localStorage.removeItem('currentNhanVienId');
                   localStorage.removeItem('currentNhanVienName');
+                  localStorage.removeItem('currentQuanLyId');
                   
                   window.location.href = 'login.html';
                }

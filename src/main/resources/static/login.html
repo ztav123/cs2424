@@ -368,6 +368,9 @@
         localStorage.removeItem('verifyNhanVien2');
         localStorage.removeItem('isHandover');
         localStorage.removeItem('handoverFromId');
+        localStorage.removeItem('isExit');
+        localStorage.removeItem('currentNhanVienId');
+        localStorage.removeItem('currentQuanLyId'); 
         
         // Đánh dấu đã khởi tạo thành công để không xóa ở các lần load trang tiếp theo
         sessionStorage.setItem('isAppStarted', 'true');
@@ -378,16 +381,23 @@
         if(btnExit) {
             btnExit.addEventListener('click', () => {
                 const isHandover = localStorage.getItem('isHandover');
-                
-                if (isHandover === 'true') {
+                const isExit = localStorage.getItem('isExit');
+                const verifyNhanVien2 = localStorage.getItem('verifyNhanVien2');
+
+                if (verifyNhanVien2) {
+                    document.getElementById("loginresult").innerHTML = "Không thể hủy thao tác lúc này vì đang trong quá trình xác minh!";
+                }
+                else if (isHandover === 'true'|| isExit === 'true') {
                     // Đang ở chế độ chờ chuyển ca -> Hủy bỏ, quay về máy POS, giữ nguyên phiên
                     localStorage.removeItem('isHandover');
+                    localStorage.removeItem('isExit');
                     window.location.href = 'orderPage.html';
                 } else {
                     // Chế độ đăng nhập bình thường -> Xóa rỗng ô nhập liệu
                     document.getElementById("ID").value = "";
                     document.getElementById("Password").value = "";
                     document.getElementById("loginresult").innerHTML = "Đã hủy thao tác.";
+                    window.close(); // Đóng cửa sổ đăng nhập (nếu là cửa sổ riêng), nếu không sẽ ở lại trang này với ô input đã được reset
                 }
             });
         }
@@ -402,11 +412,49 @@
 
         const getid = document.getElementById("ID").value;
         const getpass = document.getElementById("Password").value;
-
+        const isExit = localStorage.getItem('isExit');
         const oldId = localStorage.getItem('currentNhanVienId');
         const isHandover = localStorage.getItem('isHandover');
         const verifyNhanVien2 = localStorage.getItem('verifyNhanVien2');
 
+        if(isExit === 'true' && !isHandover) {
+            localStorage.setItem('handoverFromId', oldId);             
+            if(!verifyNhanVien2) {
+            let url = `http://localhost:8080/api/auth/exit?id=${getid}&password=${getpass}`;
+            const response = await fetch(url, { method: 'POST' });
+            const userData = await response.json();
+            if (response.ok) {
+                localStorage.setItem('currentQuanLyId', userData.id);
+                localStorage.setItem('currentQuanLyName', userData.hoten);
+                window.location.href = 'KetCa.html';
+            } else {
+                document.getElementById("loginresult").innerHTML = await response.text(); 
+            }
+            return;
+            }
+            else {
+
+                if (verifyNhanVien2 !== getid) {
+                document.getElementById("loginresult").innerHTML = `Từ chối: Chỉ quản lý (ID: ${verifyNhanVien2}) mới được đăng nhập kết thúc phiên làm việc!`;
+                return;
+                }
+                let url = `http://localhost:8080/api/auth/exit?id=${getid}&password=${getpass}`;
+                const response = await fetch(url, { method: 'POST' });
+            if (response.ok) {
+                const item = document.createElement("div");
+                item.className = "loginresult";
+                item.setAttribute("style", "color: green;");
+                document.getElementById("loginresult").innerHTML = "Xác minh thành công! Nhân viên vui lòng chụp lại ảnh màn hình."; // Đóng cửa sổ đăng nhập sau khi xác minh thành công
+                localStorage.removeItem('isHandover');
+                localStorage.removeItem('isExit');
+                localStorage.removeItem('verifyNhanVien2');
+            } else {
+                document.getElementById("loginresult").innerHTML = "Sai mật khẩu quản lý! Vui lòng thử lại."; 
+            }
+        }
+        }    
+        else //không phải quản lý vào thì mới check chuyển ca, nếu là quản lý thì cho vào luôn và 
+        {
         // BƯỚC 1: Xử lý chặn nhân viên đang trực tự chuyển ca cho chính mình
         if (isHandover === 'true' && oldId === getid) {
             document.getElementById("loginresult").innerHTML = "Từ chối: Không thể chuyển ca cho chính mình!";
@@ -429,7 +477,7 @@
             // Bổ sung tham số createShift để điều khiển Backend
             let url = `http://localhost:8080/api/auth/login?id=${getid}&password=${getpass}`;
             
-            if (isHandover === 'true' && oldId) {
+            if (isHandover === 'true' && oldId && !verifyNhanVien2) {
                 // ĐĂNG NHẬP LẦN 2 (Uỷ quyền): Báo Backend KHÔNG tạo ca làm, chỉ check pass
                 url += `&oldId=${oldId}&createShift=false`; 
             } else {
@@ -482,7 +530,7 @@
             // Luôn reset lại trạng thái nút (nếu không chuyển trang)
             isLoggingIn = false; 
             document.querySelector('.btn-login').style.opacity = "1";
-        }
+        }}
     }
     //numpad input
     // Biến để lưu trữ ô input hiện đang được chọn

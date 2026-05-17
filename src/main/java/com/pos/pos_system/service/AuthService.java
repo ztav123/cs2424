@@ -25,7 +25,7 @@ public class AuthService {
     @Transactional
     public Map<String, Object> loginAndManageShift(Integer newId, String password, Integer oldId, boolean createShift) {
         NhanVien nv = nhanVienRepo.findById(newId).orElse(null);
-        if (nv == null || !nv.getMkdangnhap().equals(password)) return null; 
+        if (nv == null || !nv.getMkdangnhap().equals(password)|| nv.getTrangthai() == 0) return null; 
 
         if ("ADMIN".equalsIgnoreCase(nv.getVaitro())) {
             Map<String, Object> response = new HashMap<>();
@@ -91,5 +91,19 @@ public class AuthService {
         response.put("id", nv.getId());
         response.put("hoten", nv.getHoten());
         return response;
+    }
+    @Transactional
+    public Map<String, Object> employeeExit(Integer newId, String password) {
+        NhanVien nv = nhanVienRepo.findById(newId).orElse(null);
+        if (nv == null || !nv.getMkdangnhap().equals(password)) return null; 
+
+        if ("ADMIN".equalsIgnoreCase(nv.getVaitro())) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("role", "ADMIN");
+            response.put("id", nv.getId());
+            response.put("hoten", nv.getHoten());
+            return response; 
+        }
+        return null;
     }
 }

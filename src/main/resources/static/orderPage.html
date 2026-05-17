@@ -287,10 +287,10 @@
             <div class="header-right">
                 <div class="header-actions">
                     <button id="btn-ket-ca" class="action-icon">
-                        <img src =".\img\Logout.png">
+                        <img src =".\img\shift.png">
                         <span>Kết ca</span>
                     </button>
-                    <div class="action-icon" id="btn-thoat"><img src =".\img\extension.png"><span>Tiện ích</span></div>
+                    <div class="action-icon" id="btn-thoat"><img src =".\img\Logout.png"><span>Đăng xuất</span></div>
                 </div>
                 <div class="datetime" id="live-clock">Đang tải...</div>
             </div>
@@ -552,8 +552,9 @@
                     </div>
                 `;
                 if(tonKhoHienTai <= 0) {
-                    card.style.opacity = '0.5';
+                    card.style.opacity = '0.36';
                     card.style.cursor = 'not-allowed';
+                    
                 }
                 productGrid.appendChild(card);
             });
@@ -716,7 +717,10 @@
     const resultArea = document.getElementById('resultArea');
 
     // Nút điều hướng
-    document.getElementById('btn-thoat').addEventListener('click', () => window.location.href = 'TienIchNhanVien.html');
+    document.getElementById('btn-thoat').addEventListener('click', () => {
+        localStorage.setItem('isExit', 'true');
+        window.location.href = 'login.html';
+    });
     document.getElementById('btn-ket-ca').addEventListener('click', () => {
         localStorage.setItem('isHandover', 'true');
         window.location.href = 'login.html'; 
