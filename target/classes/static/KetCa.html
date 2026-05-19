@@ -152,130 +152,167 @@
       </div>
 
       <script>
-        function updateDateTime() {
-            const now = new Date();
-            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            
-            const dayName = days[now.getDay()];
-            const monthName = months[now.getMonth()];
-            const dateNumber = now.getDate();
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            
-            const timeString = `${dayName} ${monthName} ${dateNumber} ${hours}:${minutes}:${seconds}`;
-            document.getElementById('live-clock').textContent = timeString;
+    // =========================================================================
+    // 1. KHỞI TẠO & ĐỒNG HỒ
+    // =========================================================================
+    function updateDateTime() {
+        const now = new Date();
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        
+        const dayName = days[now.getDay()];
+        const monthName = months[now.getMonth()];
+        const dateNumber = now.getDate();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        
+        const timeString = `${dayName} ${monthName} ${dateNumber} ${hours}:${minutes}:${seconds}`;
+        document.getElementById('live-clock').textContent = timeString;
+    }
+    setInterval(updateDateTime, 1000); 
+    updateDateTime();
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const nvId = sessionStorage.getItem('currentNhanVienId') || sessionStorage.getItem('currentQuanLyId');
+        const nvName = sessionStorage.getItem('currentNhanVienName') || sessionStorage.getItem('currentQuanLyName');
+        const token = sessionStorage.getItem('accessToken');
+            if (!token) {
+                alert("Không tìm thấy thông tin đăng nhập. Vui lòng đăng nhập lại!");
+                window.location.href = 'login.html';
+                return;
+            }
+        const userInfoSpans = document.querySelectorAll('.user-info span');
+        if(nvId) userInfoSpans[0].textContent = `ID: ${nvId}`;
+        if(nvName) userInfoSpans[1].textContent = `TÊN: ${nvName.toUpperCase()}`;
+
+        // Phục hồi trạng thái nút nếu đã in bảng kê trước đó (ngăn F5 mất trạng thái)
+        if (sessionStorage.getItem('isPrinted') === 'true') {
+            const btn = document.getElementById("btn-save-log");
+            loadLogs(); // Tải lại log để hiển thị bản kê đã in
+            btn.innerHTML = "<span>&#10004;</span> ĐI ĐẾN ĐĂNG NHẬP XÁC MINH";
+            btn.style.backgroundColor = "#28a745";
         }
-        setInterval(updateDateTime, 1000); 
-        updateDateTime();
+    });
 
-        // === THÊM MỚI: HIỂN THỊ THÔNG TIN NHÂN VIÊN Ở TRANG KẾT CA ===
-         document.addEventListener("DOMContentLoaded", () => {
-            const nvId = localStorage.getItem('currentNhanVienId');
-            const nvName = localStorage.getItem('currentNhanVienName');
+    // =========================================================================
+    // 2. STATE & RENDER BẢNG ĐẾM TIỀN
+    // =========================================================================
+    const denominations = [500000, 200000, 100000, 50000, 20000, 10000, 5000, 2000, 1000, 500];
+    let rowsdata = denominations.map(val => ({ price: val, qty: 0, total: 0 }));
+    let selectedindex = 0; 
+    let currentinput = "";
+
+    const formatmoney = (num) => {
+        if (num == null || isNaN(num)) return "0"; 
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    };
+
+    const rendertable = () => {
+        const tbody = document.getElementById("table-body");
+        tbody.innerHTML = "";
+        let grandtotal = 0;
+
+        rowsdata.forEach((row, index) => {
+            grandtotal += row.total;
+            const tr = document.createElement("div");
+            tr.className = `row-item ${index === selectedindex ? "active" : ""}`;
+            tr.onclick = () => selectrow(index);
+
+            tr.innerHTML = `
+                <div class="col-price">${formatmoney(row.price)}</div>
+                <div class="col-qty">${row.qty}</div>
+                <div class="col-total">${formatmoney(row.total)}</div>
+            `;
+            tbody.appendChild(tr);
+        });
+        document.getElementById("grand-total").innerText = `${formatmoney(grandtotal)} đ`;
+    };
+
+    const selectrow = (index) => {
+        selectedindex = index;
+        currentinput = rowsdata[index].qty === 0 ? "" : rowsdata[index].qty.toString();
+        document.getElementById("numpad-input").value = currentinput;
+        rendertable();
+    };
+
+    // =========================================================================
+    // 3. LOGIC NUMPAD (BÀN PHÍM ẢO)
+    // =========================================================================
+    const numpadclick = (action) => {
+        if (action === "clear") {
+            currentinput = "";
+        } else if (action === "backspace") {
+            currentinput = currentinput.slice(0, -1);
+        } else if (action === "enter") {
+            let qty = parseInt(currentinput);
+            if (isNaN(qty)) qty = 0;
             
-            const userInfoSpans = document.querySelectorAll('.user-info span');
+            rowsdata[selectedindex].qty = qty;
+            rowsdata[selectedindex].total = rowsdata[selectedindex].price * qty;
             
-            if(nvId) {
-                userInfoSpans[0].textContent = `ID: ${nvId}`;
-            }
-            if(nvName) {
-                userInfoSpans[1].textContent = `TÊN: ${nvName.toUpperCase()}`;
-            }
-         });
-
-         // 1. cấu hình state và data
-         const denominations = [500000, 200000, 100000, 50000, 20000, 10000, 5000, 2000, 1000, 500];
-         let rowsdata = denominations.map(val => ({ price: val, qty: 0, total: 0 }));
-         let selectedindex = 0; // mặc định chọn dòng đầu tiên
-         let currentinput = "";
-         
-         // mock database lưu lịch sử
-
-
-         // 2. hàm định dạng tiền tệ (ví dụ: 500000 -> 500.000)
-         const formatmoney = (num) => {
-            if (num == null) return "0"; // DÒNG BẢO VỆ MỚI THÊM
-            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-         };
-
-         // 3. hàm render bảng tính tiền
-         const rendertable = () => {
-            const tbody = document.getElementById("table-body");
-            tbody.innerHTML = "";
-            let grandtotal = 0;
-
-            rowsdata.forEach((row, index) => {
-               grandtotal += row.total;
-               const tr = document.createElement("div");
-               tr.className = `row-item ${index === selectedindex ? "active" : ""}`;
-               tr.onclick = () => selectrow(index);
-
-               tr.innerHTML = `
-                  <div class="col-price">${formatmoney(row.price)}</div>
-                  <div class="col-qty">${row.qty}</div>
-                  <div class="col-total">${formatmoney(row.total)}</div>
-               `;
-               tbody.appendChild(tr);
-            });
-
-            document.getElementById("grand-total").innerText = `${formatmoney(grandtotal)} đ`;
-         };
-
-         // 4. hàm xử lý khi chọn dòng
-         const selectrow = (index) => {
-            selectedindex = index;
-            currentinput = rowsdata[index].qty === 0 ? "" : rowsdata[index].qty.toString();
-            document.getElementById("numpad-input").value = currentinput;
-            rendertable();
-         };
-
-         // 5. hàm xử lý nút bấm trên numpad
-         const numpadclick = (action) => {
-            if (action === "clear") {
-               currentinput = "";
-            } else if (action === "backspace") {
-               currentinput = currentinput.slice(0, -1);
-            } else if (action === "enter") {
-               // khi ấn enter, cập nhật giá trị vào state
-               let qty = parseInt(currentinput);
-               if (isNaN(qty)) qty = 0;
-               
-               rowsdata[selectedindex].qty = qty;
-               rowsdata[selectedindex].total = rowsdata[selectedindex].price * qty;
-               
-               // tự động nhảy xuống dòng tiếp theo nếu chưa ở cuối
-               if (selectedindex < rowsdata.length - 1) {
-                  selectedindex++;
-                  currentinput = rowsdata[selectedindex].qty === 0 ? "" : rowsdata[selectedindex].qty.toString();
-               } else {
-                  currentinput = ""; // reset input nếu ở dòng cuối
-               }
+            if (selectedindex < rowsdata.length - 1) {
+                selectedindex++;
+                currentinput = rowsdata[selectedindex].qty === 0 ? "" : rowsdata[selectedindex].qty.toString();
             } else {
-               // nhấn số
-               currentinput += action;
+                currentinput = ""; 
             }
-            
-            document.getElementById("numpad-input").value = currentinput;
-            rendertable();
-         };
+        } else {
+            currentinput += action;
+        }
+        document.getElementById("numpad-input").value = currentinput;
+        rendertable();
+    };
 
-         // 6. HÀM FETCH VÀ RENDER LỊCH SỬ TỪ DATABASE
-         async function loadLogs() {
-            try {
-               const res = await fetch('http://localhost:8080/api/ketca/logs-today'); // Đã sửa đúng URL
-               if (res.ok) {
-                  let dbData = await res.json();
-                  const logcontainer = document.getElementById("log-container");
-                  logcontainer.innerHTML = "";
-                  
-                  // Sắp xếp theo thứ tự ID để hiện số thứ tự cho chuẩn
-                  dbData.sort((a, b) => a.id - b.id);
-                  
-                  const handoverId = parseInt(localStorage.getItem('handoverFromId'));
+    // =========================================================================
+    // 4. LOGIC HIỂN THỊ LỊCH SỬ KẾT CA (BAO GỒM CẢ BẢN NHÁP ẢO)
+    // =========================================================================
+    async function loadLogs() {
+        try {
+            const token = sessionStorage.getItem('accessToken'); 
+           if (!token) return;
 
-                  dbData.forEach((log, index) => {
+           const res = await fetch('http://localhost:8080/api/ketca/logs-today', {
+               method: 'GET',
+               headers: { 
+                   'Authorization': `Bearer ${token}` // Kẹp thẻ xác thực vào đây
+               }
+           });
+
+            if (res.ok) {
+                let dbData = await res.json();
+                const logcontainer = document.getElementById("log-container");
+                logcontainer.innerHTML = "";
+                
+                dbData.sort((a, b) => a.id - b.id);
+
+                // --- 4.1. TIÊM BẢN NHÁP ẢO NẾU CÓ PAYLOAD TRONG SESSION ---
+                const pendingPayloadStr = sessionStorage.getItem('pendingShiftPayload');
+                if (pendingPayloadStr) {
+                    const fakeLog = JSON.parse(pendingPayloadStr);
+                    dbData.push({
+                        id: 'BẢN NHÁP', 
+                        batdau: new Date().toISOString(),
+                        nhanVien: { hoten: sessionStorage.getItem('currentNhanVienName') || sessionStorage.getItem('currentQuanLyName') || "N/A" },
+                        tienmatKetca: fakeLog.tienmat,
+                        isFake: true 
+                    });
+                }
+
+                // --- 4.2. XÁC ĐỊNH MỤC TIÊU CẦN NỘP CỦA CA HIỆN TẠI ---
+                const realLogs = dbData.filter(l => !l.isFake);
+                const activeShift = realLogs.length > 0 ? realLogs[realLogs.length - 1] : null;
+                
+                if (activeShift) {
+                    const tienmatBandau = activeShift.tienmatBandau || 0;
+                    const heThong = activeShift.tongDoanhthu || 0;
+                    const tienNganhang = activeShift.tienNganhang || 0;
+                    const canNop = heThong - tienNganhang + tienmatBandau;
+                    document.getElementById('expected-total').innerText = formatmoney(canNop) + " đ";
+                }
+
+                // --- 4.3. ĐỔ DỮ LIỆU RA GIAO DIỆN ---
+                dbData.forEach((log, index) => {
                      // Sử dụng batdau từ Entity mới
                      const dateObj = new Date(log.batdau);
                      const dateStr = dateObj.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -289,9 +326,20 @@
                      const chenhLech = thucTe - canNop;
                      const deviationStyle = chenhLech < 0 ? "color:red; font-weight:bold;" : "color:#1a9e2a; font-weight:bold;";
 
-                     const item = document.createElement("div");
-                     item.className = "log-item";
-                     item.innerHTML = `
+                    if (log.isFake && activeShift) {
+                        tienmatBandau = activeShift.tienmatBandau || 0;
+                        heThong = activeShift.tongDoanhthu || 0;
+                        tienNganhang = activeShift.tienNganhang || 0;
+                    }
+
+                    const item = document.createElement("div");
+                    item.className = "log-item";
+                    
+                    const actionBtn = log.isFake 
+                        ? `<span style="color:#d9534f; font-weight:bold; font-size:12px;">(Chờ xác minh...)</span>`
+                        : `<button onclick="downloadPdf('${log.id}')" style="background:#0b5aa6; color:white; border:none; border-radius:4px; padding:5px 12px; cursor:pointer; font-weight:bold; font-size:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Xuất PDF</button>`;
+
+                    item.innerHTML = `
                         <div class="log-index">${index + 1}</div>
                         <div class="log-content">
                            <div class="log-header" style="display:flex; justify-content:space-between; align-items:center;">
@@ -309,109 +357,105 @@
                               
                            </div>
                         </div>
-                     `;
-                     logcontainer.appendChild(item);
-
-                     if (log.nhanVien.id === handoverId) {
-                         document.getElementById('expected-total').innerText = formatmoney(canNop) + " đ";
-                     }
-                  });
-               }
-            } catch (error) { console.error("Lỗi tải log", error); }
-         }
-
-         // HÀM TẢI PDF (Mở tab ẩn để trình duyệt tự động tải file)
-         // --- TRONG FILE KetCa.html ---
-
-         // ĐẢM BẢO HÀM NÀY NẰM ĐỘC LẬP (NGOÀI loadLogs)
-         function downloadPdf(id) {
-            console.log("Đang yêu cầu xuất PDF cho ca ID: " + id);
-            
-            if (window.app) {
-               // Ép kiểu sang chuỗi (toString) một lần nữa cho chắc chắn
-               window.app.downloadPdf(id.toString()); 
-            } else {
-               window.open(`http://localhost:8080/api/ketca/export-pdf/${id}`, '_blank');
+                    `;
+                    logcontainer.appendChild(item);
+                });
             }
-         }
+        } catch (error) { console.error("Lỗi tải log", error); }
+    }
 
-         // 7. XỬ LÝ LƯU LOG KHI BẤM "IN BẢNG KÊ" VÀ "XÁC NHẬN"
-         let isLogPrinted = false;
-         let isProcessing = false; // CỜ CHỐNG DOUBLE-CLICK (NGĂN TẠO 2 LOG)
-
-         document.getElementById("btn-save-log").addEventListener("click", async function() {
-            if (isProcessing) return; // Nếu đang chờ xử lý API thì chặn mọi click tiếp theo
-            
-            const handoverId = parseInt(localStorage.getItem('handoverFromId')); // ID Nhân viên 1
-            const currentNhanVienId = localStorage.getItem('currentNhanVienId'); // ID Nhân viên 2
-            const currentQuanLyId = localStorage.getItem('currentQuanLyId'); // ID Quản lý (nếu có)
-            const isExit = localStorage.getItem('isExit'); // Kiểm tra nếu đang trong quá trình dang xuat
-            if(!isExit && !handoverId) return alert("Không tìm thấy thông tin Nhân viên ca trước!");
-
-            if (!isLogPrinted) {
-               const cashCounted = rowsdata.reduce((sum, row) => sum + row.total, 0); // Tổng tiền mặt đếm được
-
-               const payload = {
-                  nhanVienId: handoverId, 
-                  tienmat: cashCounted, // Đây là giá trị tienmat_ketca thực tế
-                  quanly: false
-               };
-
-               try {
-                  const res = await fetch('http://localhost:8080/api/ketca/save-log', {
-                     method: 'POST',
-                     headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify(payload)
-                  });
-                  
-                  if(res.ok) {
-                     alert("Đã chốt sổ thực tế thành công!");
-                     await loadLogs();
-                      
-                      // Thay đổi giao diện nút
-                      this.innerHTML = "<span>&#10004;</span> xác nhận";
-                      this.style.backgroundColor = "#28a745"; 
-                      this.style.opacity = "1"; // Sáng lại nút
-                      isLogPrinted = true;
-                   } else {
-                      alert("Có lỗi xảy ra khi lưu bảng kê!");
-                      this.style.opacity = "1";
-                   }
-                } catch(e) {
-                   alert("Lỗi kết nối máy chủ");
-                   this.style.opacity = "1";
-                } finally {
-                   isProcessing = false; // Tắt cờ chặn spam
+    async function downloadPdf(id) {
+        if (window.app) {
+            // Dành cho ứng dụng JavaFX Desktop
+            window.app.downloadPdf(id.toString()); 
+        } else {
+            // Dành cho giao diện Web (Browser)
+            try {
+                const token = sessionStorage.getItem('accessToken');
+                if (!token) {
+                    alert("Phiên đăng nhập không hợp lệ!");
+                    return;
                 }
-               // Tại sự kiện click của nút btn-save-log (khi đã đổi thành nút Xác nhận)
-               } else {
-                  // LẦN 2: BẤM XÁC NHẬN 
-                  const handoverId = localStorage.getItem('handoverFromId');
 
-                  // Chỉ tạo cờ verify nếu thực sự đang có một luồng chuyển ca (có nhân viên bàn giao)
-                  if (isExit) {
-                     localStorage.setItem('verifyNhanVien2', currentQuanLyId);
-                     alert("Quản lý đăng nhập lại lần nữa để cho thằng em đăng xuất.");
-                  } else if (handoverId) {
-                     localStorage.setItem('verifyNhanVien2', currentNhanVienId);
-                     alert("Xác nhận chốt ca thành công! Nhân viên nhận ca vui lòng đăng nhập lại để xác minh.");
-                  } else {
-                     alert("Thông báo: Đây là ca đầu tiên hoặc phiên làm việc mới, không cần xác minh chuyển ca.");
-                  }
-                  
-                  // Giải phóng các cờ tạm và đăng xuất
-                  localStorage.removeItem('handoverFromId');
-                  localStorage.removeItem('isHandover');
-                  localStorage.removeItem('currentNhanVienId');
-                  localStorage.removeItem('currentNhanVienName');
-                  localStorage.removeItem('currentQuanLyId');
-                  
-                  window.location.href = 'login.html';
-               }
-         });
+                // 1. Dùng fetch để gọi API và KẸP TOKEN VÀO HEADER
+                const response = await fetch(`http://localhost:8080/api/ketca/export-pdf/${id}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}` 
+                    }
+                });
 
-         // Khởi tạo lần đầu
-         rendertable();
-      </script>
+                if (!response.ok) {
+                    alert("Lỗi tải file! Vui lòng kiểm tra quyền hoặc ID ca làm.");
+                    return;
+                }
+
+                // 2. Lấy dữ liệu file dưới dạng Blob (Nhị phân)
+                const blob = await response.blob();
+
+                // 3. Tạo một URL ảo (Object URL) trỏ tới file Blob vừa tải
+                const url = window.URL.createObjectURL(blob);
+
+                // 4. Tạo một thẻ <a> ẩn, gán URL và ép click để tải file
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `BaoCao_KetCa_${id}.pdf`; // Tên file tải xuống
+                
+                document.body.appendChild(a);
+                a.click();
+
+                // 5. Dọn dẹp URL ảo và thẻ <a> để giải phóng bộ nhớ
+                window.URL.revokeObjectURL(url);
+                a.remove();
+
+            } catch (error) {
+                console.error("Lỗi khi tải file PDF:", error);
+                alert("Lỗi kết nối khi xuất PDF!");
+            }
+        }
+    }
+
+    // =========================================================================
+    // 5. XỬ LÝ CHỐT SỔ (LƯU PAYLOAD VÀO SESSION) & ĐIỀU HƯỚNG
+    // =========================================================================
+    let isProcessing = false; 
+
+    document.getElementById("btn-save-log").addEventListener("click", async function() {
+        if (isProcessing) return; 
+
+        if (sessionStorage.getItem('isPrinted') === 'true') {
+            loadLogs();
+            window.location.href = 'login.html';
+            return;
+        }
+
+        const nhanVienId = sessionStorage.getItem('currentNhanVienId') || sessionStorage.getItem('currentQuanLyId');
+        if (!nhanVienId) return alert("Không tìm thấy thông tin ca trực!");
+
+        const isExit = sessionStorage.getItem('isExit') === 'true';
+        const cashCounted = rowsdata.reduce((sum, row) => sum + row.total, 0); 
+
+        // ĐÓNG GÓI PAYLOAD HOÀN CHỈNH MANG THEO THỜI GIAN ĐỊA PHƯƠNG
+        const payload = {
+            nhanVienId: parseInt(nhanVienId), 
+            tienmat: cashCounted, 
+            quanly: isExit,
+            ketThucTime: new Date().toISOString() // Khóa mốc thời gian kết ca tại đây!
+        };
+
+        sessionStorage.setItem('pendingShiftPayload', JSON.stringify(payload));
+        sessionStorage.setItem('isPrinted', 'true');
+
+        alert("Đã ghi nhận số liệu đếm tiền và thời gian đóng ca!");
+        this.innerHTML = "<span>&#10004;</span> ĐI ĐẾN ĐĂNG NHẬP XÁC MINH";
+        this.style.backgroundColor = "#28a745"; 
+        
+        await loadLogs();
+    });
+
+    // Gọi lần đầu để kích hoạt màn hình
+    rendertable();
+</script>
    </body>
 </html>

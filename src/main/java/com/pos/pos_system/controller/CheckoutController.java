@@ -1,7 +1,13 @@
 package com.pos.pos_system.controller;
 
 import com.pos.pos_system.dto.OrderRequest;
+import com.pos.pos_system.entity.HoaDon;
+import com.pos.pos_system.repository.HoaDonRepository;
 import com.pos.pos_system.service.CheckoutService;
+import com.pos.pos_system.service.PdfService4HoaDon;
+
+import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +19,11 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import com.pos.pos_system.entity.HoaDon;
+import com.pos.pos_system.repository.HoaDonRepository;
+import com.pos.pos_system.service.PdfService4HoaDon;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/checkout")
@@ -20,6 +31,8 @@ import java.util.*;
 public class CheckoutController {
     
     @Autowired private CheckoutService checkoutService;
+    @Autowired private HoaDonRepository hoaDonRepo;
+    @Autowired private PdfService4HoaDon pdfService4HoaDon;
 
     @Value("${vnpay.tmn-code}") private String vnp_TmnCode;
     @Value("${vnpay.hash-secret}") private String vnp_HashSecret;
@@ -55,24 +68,21 @@ public class CheckoutController {
     public String vnpayReturn(@RequestParam Map<String, String> queryParams) {
         String vnp_ResponseCode = queryParams.get("vnp_ResponseCode");
         String vnp_TxnRef = queryParams.get("vnp_TxnRef");
-        
-        // Tách lấy ID Hóa đơn gốc (Vì lúc gửi ta ghép: HD123-Timestamp)
         String orderId = vnp_TxnRef.split("-")[0]; 
 
         if ("00".equals(vnp_ResponseCode)) {
-            // Cập nhật DB thành công
             checkoutService.updateOrderStatus(orderId, "HOAN_THANH");
             
-            // Trả về giao diện HTML tự động đếm ngược 5s để quay về trang Order
+            // --- BỔ SUNG 2: Gắn thêm ?printBill=ID vào url chuyển hướng ---
             return "<!DOCTYPE html><html lang='vi'><head><meta charset='UTF-8'>" +
-                   "<meta http-equiv='refresh' content='5;url=http://localhost:8080/orderPage.html' />" +
+                   "<meta http-equiv='refresh' content='5;url=http://127.0.0.1:5501/src/main/resources/static/orderPage.html?printBill=" + orderId + "' />" +
                    "<title>Thanh toán thành công</title>" +
                    "<style>body{font-family:Arial;text-align:center;padding-top:100px;background:#eaf1f7;}</style>" +
                    "</head><body>" +
                    "<h1 style='color:#1a9e2a;'>✅ GIAO DỊCH THÀNH CÔNG!</h1>" +
                    "<h3>Mã hóa đơn: " + orderId + "</h3>" +
-                   "<p>Hệ thống tự động quay về trang Bán Hàng sau 5 giây...</p>" +
-                   "<button onclick='window.location.href=\"http://localhost:8080/orderPage.html\"' style='padding:10px 20px;background:#0b5aa6;color:white;border:none;border-radius:5px;cursor:pointer;font-size:16px;margin-top:20px;'>Quay về ngay</button>" +
+                   "<p>Hệ thống tự động in hóa đơn và quay về trang Bán Hàng sau 5 giây...</p>" +
+                   "<button onclick='window.location.href=\"http://127.0.0.1:5501/src/main/resources/static/orderPage.html?printBill=" + orderId + "\"' style='padding:10px 20px;background:#0b5aa6;color:white;border:none;border-radius:5px;cursor:pointer;font-size:16px;margin-top:20px;'>Quay về & In Bill</button>" +
                    "</body></html>";
         } else {
             // Thanh toán thất bại (Khách hủy)
@@ -81,6 +91,16 @@ public class CheckoutController {
                    "<body style='text-align:center;padding-top:100px;font-family:Arial;'>" +
                    "<h1 style='color:red;'>❌ GIAO DỊCH THẤT BẠI HOẶC BỊ HỦY!</h1>" +
                    "<p>Tự động quay về trang Bán Hàng sau 5 giây...</p></body></html>";
+        }
+    }
+    @GetMapping("/export-pdf/{id}")
+    public void exportReceiptPDF(HttpServletResponse response, @PathVariable String id) throws IOException {
+        response.setContentType("application/pdf");
+        response.setHeader("Content-Disposition", "attachment; filename=HoaDon_" + id + ".pdf");
+
+        HoaDon hd = hoaDonRepo.findById(id).orElse(null);
+        if (hd != null) {
+            pdfService4HoaDon.exportReceipt(response, hd);
         }
     }
 

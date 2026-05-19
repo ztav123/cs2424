@@ -176,18 +176,43 @@
     </div>
 
 <script>
+    
+    // --- 0. Khởi tạo User Info ---
+    const token = sessionStorage.getItem('accessToken');
+
     // --- 0. Khởi tạo User Info ---
     document.addEventListener("DOMContentLoaded", () => {
-        const id = localStorage.getItem('currentQuanLyId') || localStorage.getItem('currentNhanVienId');
-        const name = localStorage.getItem('currentQuanLyName') || localStorage.getItem('currentNhanVienName');
+        if (!token) {
+            alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!");
+            window.location.href = 'login.html';
+            return;
+        }
+
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        
+        // Quản lý thì bắt buộc phải là ADMIN
+        if (payload.role !== 'ADMIN') {
+            alert("Bạn không có quyền truy cập vào trang này!");
+            window.location.href = 'login.html';
+            return;
+        }
+
+        const id = sessionStorage.getItem('currentQuanLyId');
+        const name = sessionStorage.getItem('currentQuanLyName');
         const userInfoSpans = document.querySelectorAll('.user-info span');
         if (userInfoSpans.length >= 2) {
             if (id) userInfoSpans[0].textContent = `ID: ${id}`;
             if (name) userInfoSpans[1].textContent = `TÊN: ${name.toUpperCase()}`;
         }
+        
+        loadAndRenderTable();
     });
 
-    document.getElementById('btn-quay-lai').addEventListener('click', () => window.location.href = 'login.html');
+    document.getElementById('btn-quay-lai').addEventListener('click', () => {
+        sessionStorage.removeItem('accessToken');
+        sessionStorage.clear();
+        window.location.href = 'login.html';
+    });
 
     // --- 1. Đồng Hồ ---
     function updateClock() {
@@ -223,7 +248,17 @@
         head.innerHTML = '<th>Đang tải dữ liệu...</th>'; body.innerHTML = '';
 
         try {
-            const response = await fetch(API_BASE + apiEndpoints[currentTab]);
+            const response = await fetch(API_BASE + apiEndpoints[currentTab], {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            // THÊM ĐOẠN NÀY VÀO:
+            if (response.status === 403 || response.status === 401) {
+                alert("Phiên đăng nhập hết hạn hoặc bạn không có quyền truy cập!");
+                window.location.href = 'login.html';
+                return;
+            }
             const data = await response.json();
             const cols = colDef[currentTab];
 
@@ -321,17 +356,97 @@
 
     fabBtn.onclick = () => { if (!(currentTab === 'hd' && !focusedRowData)) openModal(); };
 
-    function openModal() {
+    async function openModal() {
         const formBody = document.getElementById('modal-form-body');
-        formBody.innerHTML = '';
+        formBody.innerHTML = '<p style="text-align:center;">Đang tải dữ liệu...</p>'; // Hiển thị trạng thái chờ
+        
         if (currentTab === 'hd') {
-            document.getElementById('modal-title').innerText = 'Chi tiết Hóa Đơn';
-            formBody.innerHTML = `<p>ID: ${focusedRowData.id}</p><p>Tổng: ${Number(focusedRowData.tongtien).toLocaleString()} đ</p>`;
-            document.querySelector('.btn-save').style.display = 'none';
+            document.getElementById('modal-title').innerText = 'Chi tiết Hóa Đơn: ' + focusedRowData.id;
+            document.querySelector('.btn-save').style.display = 'none'; // Ẩn nút lưu vì đây là form chỉ xem
+            modal.style.display = 'flex'; // Mở modal lên trước để người dùng thấy chữ "Đang tải"
+
+            try {
+                // FETCH THEO ĐÚNG FORMAT YÊU CẦU
+                const res = await fetch(`http://localhost:8080/api/hoadon/${focusedRowData.id}`, {
+                    headers: { 'Authorization': `Bearer ${sessionStorage.getItem('accessToken')}` }
+                });
+
+                if (res.status === 403 || res.status === 401) {
+                    alert("Phiên đăng nhập hết hạn hoặc bạn không có quyền. Vui lòng đăng nhập lại!");
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                if (res.ok) {
+                    const hoadon = await res.json();
+                    
+                    // 1. Dựng phần Header thông tin chung
+                    let htmlContent = `
+                        <div style="margin-bottom: 15px; font-size: 0.95rem; line-height: 1.6; border-bottom: 1px dashed #ccc; padding-bottom: 10px;">
+                            <p><b>Khách hàng:</b> ${hoadon.khachHang ? hoadon.khachHang.ten + ' (' + hoadon.khachHang.sdt + ')' : 'Khách lẻ'}</p>
+                            <p><b>Ngày lập:</b> ${new Date(hoadon.ngaylap).toLocaleString('vi-VN')}</p>
+                            <p><b>Thanh toán:</b> ${hoadon.phuongthucTt || 'N/A'}</p>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;">
+                            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; font-weight: bold; border-bottom: 2px solid #0b5aa6; padding-bottom: 5px;">
+                                <div>Tên SP</div>
+                                <div style="text-align: right;">Đơn giá</div>
+                                <div style="text-align: center;">SL</div>
+                                <div style="text-align: right;">T.Tiền</div>
+                            </div>
+                    `;
+
+                    // Lấy danh sách chi tiết (Lưu ý: Tùy Backend bạn đặt tên list này là chiTiet hay chiTietHoaDons)
+                    const danhSachChiTiet = hoadon.chiTiet || hoadon.chiTietHoaDons || [];
+                    
+                    if (danhSachChiTiet.length === 0) {
+                        htmlContent += `<p style="text-align:center; margin-top: 10px; color: #777;">Chưa có chi tiết sản phẩm.</p>`;
+                    } else {
+                        // 2. Render từng dòng sản phẩm
+                        danhSachChiTiet.forEach(item => {
+                            const tenSp = item.sanPham ? item.sanPham.ten : 'Sản phẩm đã xóa';
+                            const donGia = item.donGia || 0;
+                            const soLuong = item.soLuong || 0;
+                            const thanhTien = donGia * soLuong;
+                            
+                            htmlContent += `
+                                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; border-bottom: 1px dashed #eee; padding: 8px 0; font-size: 0.9rem;">
+                                    <div>${tenSp}</div>
+                                    <div style="text-align: right;">${donGia.toLocaleString('vi-VN')}</div>
+                                    <div style="text-align: center;">${soLuong}</div>
+                                    <div style="text-align: right;">${thanhTien.toLocaleString('vi-VN')}</div>
+                                </div>
+                            `;
+                        });
+                    }
+
+                    // 3. Dựng phần Footer Tổng tiền
+                    htmlContent += `
+                        </div>
+                        <div style="margin-top: 15px; padding-top: 10px; border-top: 2px solid #333; text-align: right; font-size: 1.2rem;">
+                            <b>Tổng cộng: <span style="color: #0b5aa6;">${Number(hoadon.tongtien).toLocaleString('vi-VN')} VNĐ</span></b>
+                        </div>
+                    `;
+                    
+                    formBody.innerHTML = htmlContent;
+
+                } else {
+                    formBody.innerHTML = '<p style="color:red; text-align:center;">Lỗi không thể tải chi tiết hóa đơn từ máy chủ!</p>';
+                }
+            } catch (error) {
+                console.error("Lỗi Fetch Chi tiết Hóa đơn:", error);
+                formBody.innerHTML = '<p style="color:red; text-align:center;">Lỗi mạng hoặc máy chủ không phản hồi!</p>';
+            }
+
         } else {
+            // =========================================================================
+            // Logic Form Thêm/Sửa cho Sản phẩm (sp) và Nhân viên (nv) - Giữ nguyên
+            // =========================================================================
             document.querySelector('.btn-save').style.display = 'inline-block';
             const isEdit = focusedRowData !== null;
             document.getElementById('modal-title').innerText = isEdit ? 'Sửa thông tin' : 'Thêm mới';
+            
             colDef[currentTab].forEach(col => {
                 if (col === 'id' && !isEdit) return; 
                 const value = isEdit ? focusedRowData[col] : '';
@@ -341,8 +456,8 @@
                 }
                 formBody.innerHTML += `<div class="form-group"><label>${colNames[col]}</label>${inputHtml}</div>`;
             });
+            modal.style.display = 'flex';
         }
-        modal.style.display = 'flex';
     }
 
     function closeModal() { modal.style.display = 'none'; }
@@ -354,11 +469,17 @@
             if(input && !input.disabled) payload[col] = input.value;
         });
         if(currentTab === 'nv' && !focusedRowData) payload.mkdangnhap = "123456"; 
-
+        if (currentTab === 'hd') {
+            closeModal(); return;
+        }
         const isEdit = focusedRowData !== null;
         const endpoint = API_BASE + apiEndpoints[currentTab] + (isEdit ? `/${focusedRowData.id}` : '');
         try {
-            const res = await fetch(endpoint, { method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const res = await fetch(endpoint, { method: isEdit ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' , 'Authorization': `Bearer ${token}`}, body: JSON.stringify(payload) });
+            if (res.status === 403 || res.status === 401) {
+                alert("Phiên đăng nhập hết hạn. Không thể lưu dữ liệu!");
+                return;
+            }
             if (res.ok) { alert('Lưu thành công!'); closeModal(); loadAndRenderTable(); } 
             else { alert('Có lỗi xảy ra: ' + res.status); }
         } catch (err) { alert('Lỗi kết nối mạng!'); }
@@ -465,7 +586,12 @@
         const select = document.getElementById('nv-filter');
         if (select.options.length > 1) return; 
         try {
-            const res = await fetch(`${API_BASE}/nhanvien`);
+            const res = await fetch(`${API_BASE}/nhanvien`, {
+    method: 'GET',
+    headers: {
+        'Authorization': `Bearer ${token}`
+    }
+});
             const nvs = await res.json();
             nvs.forEach(nv => {
                 let opt = document.createElement('option');
@@ -507,7 +633,12 @@
             const cards = document.querySelectorAll('.card .value');
             cards[0].textContent = "Đang tính...";
             
-            const res = await fetch(url);
+            const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+        'Authorization': `Bearer ${token}`
+    }
+});
             if (!res.ok) throw new Error("Lỗi API");
             const data = await res.json();
 
@@ -608,7 +739,12 @@
     async function fetchCaGanNhat() {
         try {
             document.getElementById('tm-expected-total').innerText = 'Đang tải...';
-            const res = await fetch(API_BASE + '/ketca/logs-today');
+            const res = await fetch(API_BASE + '/ketca/logs-today', {
+    method: 'GET',
+    headers: {
+        'Authorization': `Bearer ${token}`
+    }
+});
             if (res.ok) {
                 const logs = await res.json();
                 document.getElementById('tm-expected-total').innerText = logs.length > 0 ? tmFormatMoney(logs[logs.length - 1].tienmatKetca || 0) + ' đ' : '0 đ';
@@ -617,10 +753,17 @@
     }
 
     document.getElementById("tm-btn-save-log").onclick = async function() {
-        const quanLyId = parseInt(localStorage.getItem('currentQuanLyId'));
+        const quanLyId = parseInt(sessionStorage.getItem('currentQuanLyId'));
         if (!quanLyId) return alert("Không tìm thấy ID Quản lý!");
         try {
-            const res = await fetch(API_BASE + '/ketca/save-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nhanVienId: quanLyId, tienmat: tmRowsData.reduce((sum, row) => sum + row.total, 0), quanly: true }) });
+            const res = await fetch(API_BASE + '/ketca/save-log', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ nhanVienId: quanLyId, tienmat: tmRowsData.reduce((sum, row) => sum + row.total, 0), quanly: true })
+            });
             if(res.ok) { alert("Cập nhật thành công!"); tmRowsData = tmDenominations.map(val => ({ price: val, qty: 0, total: 0 })); tmSelectedIndex = 0; tmCurrentInput = ""; tmRenderTable(); } 
             else alert("Lỗi " + res.status);
         } catch(e) { alert("Lỗi mạng!"); }
@@ -657,7 +800,6 @@
         };
     });
 
-    loadAndRenderTable();
 </script>
 </body>
 </html>

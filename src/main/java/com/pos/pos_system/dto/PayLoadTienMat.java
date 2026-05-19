@@ -1,10 +1,9 @@
-package com.pos.pos_system.dto;
+ package com.pos.pos_system.dto;
 import lombok.Data;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Data
 public class PayLoadTienMat {
-    // Chỉ định rõ tên key JSON map với biến này để không bao giờ bị lỗi
     @JsonProperty("nhanVienId") 
     private Integer nhanVienId;   
     
@@ -12,4 +11,7 @@ public class PayLoadTienMat {
     private Double tienmat;
     
     private Boolean quanly;
+    
+    // THÊM TRƯỜNG NÀY: Để nhận chuỗi thời gian đóng ca từ Frontend
+    private String ketThucTime; 
 }

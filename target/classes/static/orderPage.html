@@ -202,7 +202,8 @@
             cursor: pointer; transition: all 0.2s; padding: 15px 0;
         }
         .method-card:hover { background: #d0e1f0; border-color: #0b5aa6;}
-        .method-icon { font-size: 40px; margin-bottom: 10px; }
+        .method-icon { height: 40px; margin-bottom: 10px; }
+        .method-icon img { max-height: 100%; object-fit: contain; }
         .method-name { font-weight: bold; font-size: 15px; }
         .method-card.cancel { background: #fdfdfd; border-color: #ccc; }
         .method-card.momo { background: #1a1a1a; color: white; border-color: #000;}
@@ -289,9 +290,13 @@
                     <button id="btn-ket-ca" class="action-icon">
                         <img src =".\img\shift.png">
                         <span>Kết ca</span>
+                    </button><button id="btn-tien-ich" class="action-icon">
+                        <img src =".\img\extension.png">
+                        <span>Tiện ích</span>
                     </button>
                     <div class="action-icon" id="btn-thoat"><img src =".\img\Logout.png"><span>Đăng xuất</span></div>
-                </div>
+                    
+                    </div>
                 <div class="datetime" id="live-clock">Đang tải...</div>
             </div>
         </header>
@@ -453,21 +458,18 @@
                     
                     <div class="payment-methods-grid">
                         <div class="method-card" onclick="processPayment('Tiền mặt')">
-                            <div class="method-icon">💵</div>
+                            <div class="method-icon"><img src=".\img\Cash.png" alt="Tiền mặt"></div>
                             <div class="method-name">TIỀN MẶT</div>
                         </div>
                         <div class="method-card" onclick="processPayment('Ngân hàng')">
-                            <div class="method-icon">💳</div>
+                            <div class="method-icon"><img src=".\img\banking.png" alt="Ngân hàng" style="filter: grayscale(100%);"></div>
                             <div class="method-name">NGÂN HÀNG</div>
                         </div>
                         <div class="method-card cancel" id="btnCancelPayment">
-                            <div class="method-icon">❌</div>
+                            <div class="method-icon"><img src=".\img\delete.png" alt="Hủy"></div>
                             <div class="method-name">HỦY</div>
                         </div>
-                        <div class="method-card momo" onclick="processPayment('Momo')">
-                            <div class="method-icon">📱</div>
-                            <div class="method-name">MOMO</div>
-                        </div>
+                        
                     </div>
                 </div>
             </div>
@@ -481,7 +483,7 @@
     const searchInput = document.getElementById('barcode-scanner');
     const numpadPopup = document.getElementById('numpad-popup');
     const invoiceList = document.getElementById('invoice-list');
-    
+    const token = sessionStorage.getItem('accessToken');
     let productDatabase = {}; 
     let currentCartTotal = 0;
     let currentCustomerSdt = null;
@@ -490,11 +492,50 @@
     // 2. KHỞI ĐỘNG HỆ THỐNG KHI LOAD TRANG
     // =========================================================================
     document.addEventListener("DOMContentLoaded", () => {
+        if (sessionStorage.getItem('isExit')) {
+        
+            alert("Yêu cầu quản lý đăng nhập để xác minh đăng xuất bảng kê!");
+            
+            window.location.href = 'KetCa.html'; 
+            return;
+        }
+        else if (sessionStorage.getItem('isHandover')) {
+        
+            alert("Yêu cầu nhân viên khác đăng nhập để xác minh bàn giao ca!");
+            
+            window.location.href = 'KetCa.html'; 
+            return;
+        } else if (!sessionStorage.getItem('accessToken')) {
+        
+            alert("Vui lòng đăng nhập để tiếp tục!");
+            
+            window.location.href = 'login.html'; 
+            return;
+        } 
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        
+        // Quản lý thì bắt buộc phải là ADMIN
+        if (payload.role == 'ADMIN') {
+            alert("Bạn không có quyền truy cập vào trang này!");
+            sessionStorage.clear(); 
+            window.location.href = 'login.html';
+            return;
+        }
+        const urlParams = new URLSearchParams(window.location.search);
+        const printBillId = urlParams.get('printBill');
+        if (printBillId) {
+            // Tự động tải hóa đơn PDF
+            downloadReceipt(printBillId);
+            
+            // Dọn dẹp Query String trên URL để F5 không in lại nhiều lần
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
         loadProducts(); 
         
         // Cập nhật thông tin nhân viên
-        const nvId = localStorage.getItem('currentNhanVienId');
-        const nvName = localStorage.getItem('currentNhanVienName');
+        const nvId = sessionStorage.getItem('currentNhanVienId');
+        const nvName = sessionStorage.getItem('currentNhanVienName');
         const userInfoSpans = document.querySelectorAll('.user-info span');
         if(nvId) userInfoSpans[0].textContent = `ID: ${nvId}`;
         if(nvName) userInfoSpans[1].textContent = `TÊN: ${nvName.toUpperCase()}`;
@@ -517,7 +558,20 @@
     // =========================================================================
     async function loadProducts() {
         try {
-            const resSp = await fetch('http://localhost:8080/api/sanpham');
+            const token = sessionStorage.getItem('accessToken');
+        
+            const resSp = await fetch('http://localhost:8080/api/sanpham', { // Nhớ sửa lại đúng URL lấy sản phẩm của bạn
+                method: 'GET', 
+                headers: { 
+                    'Authorization': `Bearer ${token}` 
+                }
+            });
+            
+            if (resSp.status === 403 || resSp.status === 401) {
+                alert("Phiên đăng nhập hết hạn hoặc bạn không có quyền. Vui lòng đăng nhập lại!");
+                window.location.href = 'login.html'; 
+                return;
+            }
             const products = await resSp.json();
             
             productGrid.innerHTML = '';
@@ -716,14 +770,19 @@
     const paymentModal = document.getElementById('paymentModal');
     const resultArea = document.getElementById('resultArea');
 
-    // Nút điều hướng
-    document.getElementById('btn-thoat').addEventListener('click', () => {
-        localStorage.setItem('isExit', 'true');
-        window.location.href = 'login.html';
-    });
     document.getElementById('btn-ket-ca').addEventListener('click', () => {
-        localStorage.setItem('isHandover', 'true');
-        window.location.href = 'login.html'; 
+        sessionStorage.setItem('isHandover', 'true');
+        sessionStorage.setItem('handoverFromId', sessionStorage.getItem('currentNhanVienId'));
+        window.location.href = 'KetCa.html';
+    });
+
+    // Nút Đăng xuất
+    document.getElementById('btn-thoat').addEventListener('click', () => {
+        sessionStorage.setItem('isExit', 'true');
+        window.location.href = 'KetCa.html';
+    });
+    document.getElementById('btn-tien-ich').addEventListener('click', () => {
+        window.location.href = 'TienIchNhanVien.html'; 
     });
 
     // Mở Modal Tích điểm
@@ -748,7 +807,14 @@
         if(!phone) { alert("Vui lòng nhập SĐT!"); return; }
 
         try {
-            const res = await fetch(`http://localhost:8080/api/store/khachhang/${phone}`);
+            const res = await fetch(`http://localhost:8080/api/store/khachhang/${phone}`, {
+                headers: { 'Authorization': `Bearer ${sessionStorage.getItem('accessToken')}` }
+            });
+            if (res.status === 403 || res.status === 401) {
+                alert("Phiên đăng nhập hết hạn hoặc bạn không có quyền. Vui lòng đăng nhập lại!");
+                window.location.href = 'login.html';
+                return;
+            }
             if (res.ok) {
                 const customer = await res.json();
                 document.getElementById('displayPhone').textContent = customer.sdt;
@@ -773,9 +839,14 @@
 
         try {
             const res = await fetch('http://localhost:8080/api/store/khachhang', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionStorage.getItem('accessToken')}` },
                 body: JSON.stringify({ sdt: phone, ten: name })
             });
+            if (res.status === 403 || res.status === 401) {
+                alert("Phiên đăng nhập hết hạn hoặc bạn không có quyền. Vui lòng đăng nhập lại!");
+                window.location.href = 'login.html';
+                return;
+            }
             if (res.ok) {
                 const savedCustomer = await res.json();
                 currentCustomerSdt = savedCustomer.sdt; 
@@ -795,7 +866,7 @@
         const invoiceId = "HD36" + now.getTime(); 
         document.getElementById('bill-customer-display').textContent = currentCustomerSdt || "Khách lỏ";
         document.getElementById('bill-id-display').textContent = invoiceId;
-        document.getElementById('bill-staff-display').textContent = localStorage.getItem('currentNhanVienName') || "N/A";
+        document.getElementById('bill-staff-display').textContent = sessionStorage.getItem('currentNhanVienName') || "N/A";
         document.getElementById('bill-date-display').textContent = now.toLocaleString('vi-VN');
 
         document.querySelectorAll('.table-row').forEach(row => {
@@ -827,7 +898,7 @@
 
         const orderData = {
             id: document.getElementById('bill-id-display').textContent, 
-            nhanVienId: parseInt(localStorage.getItem('currentNhanVienId')),
+            nhanVienId: parseInt(sessionStorage.getItem('currentNhanVienId')),
             khachHangSdt: currentCustomerSdt,
             tongTien: currentCartTotal,
             phuongThucThanhToan: method,
@@ -835,16 +906,23 @@
         };
 
         try {
+            const token = sessionStorage.getItem('accessToken');
             const res = await fetch('http://localhost:8080/api/checkout/thanhtoan', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(orderData)
             });
+            if (res.status === 403 || res.status === 401) {
+                alert("Phiên đăng nhập hết hạn hoặc bạn không có quyền. Vui lòng đăng nhập lại!");
+                window.location.href = 'login.html'; // Đuổi về trang login
+                return;
+            }
             
             // NHẬN DỮ LIỆU JSON TỪ BACKEND
             const data = await res.json();
 
             if (res.ok) {
                 if (data.url) {
+                    const token = sessionStorage.getItem('accessToken');
                     // Nếu là thanh toán VNPay -> Trình duyệt tự động chuyển sang trang VNPay
                     window.location.href = data.url;
                 } else {
@@ -853,6 +931,7 @@
                     paymentModal.style.display = 'none';
                     clearCart();
                     loadProducts(); 
+                    downloadReceipt(orderData.id);
                 }
             } else {
                 alert(data.error || "Lỗi thanh toán!");
@@ -860,6 +939,28 @@
         } catch (error) { 
             alert("Lỗi hệ thống khi thanh toán!"); 
         }
+    }
+    async function downloadReceipt(invoiceId) {
+        try {
+            const token = sessionStorage.getItem('accessToken');
+            const res = await fetch(`http://localhost:8080/api/checkout/export-pdf/${invoiceId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `HoaDon_${invoiceId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            } else {
+                console.error("Lỗi xuất PDF hóa đơn");
+            }
+        } catch (e) { console.error("Lỗi mạng khi xuất hóa đơn:", e); }
     }
 </script>
 </body>

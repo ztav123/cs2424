@@ -1,25 +1,20 @@
 <!DOCTYPE html>
 <html lang="vi">
-   <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Tien Ich</title>
-      <style>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiện Ích Quản Lý - CS24H</title>
+    <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background-color: #2c3338; height: 100vh; width: 100vw; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        
         .pos-wrapper {
-            aspect-ratio: 1440 / 1024;
-            max-width: 100vw;
-            max-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-            height: 100%;
-            background-color: #eaf1f7;
-            gap: 3%; 
-            padding: 2%;
+            aspect-ratio: 1440 / 1024; max-width: 100vw; max-height: 100vh;
+            display: flex; flex-direction: column; width: 100%; height: 100%;
+            background-color: #eaf1f7; gap: 15px; padding: 15px;
         }
         
+        /* HEADER - Giữ nguyên của bạn */
         .header { background-color: #0b5aa6; color: white; border-radius: 12px; padding: 1% 2%; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; height: 8%; }
         .header-left { display: flex; align-items: center; gap: 20px; height: 100%;}
         .logo-container { height: 100%; display: flex; align-items: center; background: white;  border-radius: 8px; }
@@ -29,171 +24,314 @@
         .user-info span:last-child { font-weight: bold; font-size: 1.2rem; }
         .header-right { display: flex; align-items: center; gap: 40px; }
         .header-actions { display: flex; gap: 25px; }
-        .action-icon { display: flex; flex-direction: column; align-items: center; font-size: 0.9rem; cursor: pointer; }
-        .datetime { font-weight: bold; font-size: 1.2rem; min-width: 220px; text-align: right;} 
+        .action-icon { display: flex; flex-direction: column; align-items: center; font-size: 0.9rem; cursor: pointer; transition: 0.2s;}
+        .action-icon:hover { transform: scale(1.1); }
+        .datetime { font-weight: bold; font-size: 1.1rem; min-width: 200px; text-align: right;} 
+
+        /* MAIN CONTENT AREA */
+        .main-content {
+            display: flex; gap: 15px; flex: 1; overflow: hidden;
+        }
+
+        /* SIDEBAR NAVIGATOR */
+        .sidebar {
+            width: 200px; background-color: white; border-radius: 12px; padding: 15px 0;
+            display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .nav-item {
+            padding: 15px 20px; font-size: 1.1rem; cursor: pointer; color: #444; border-left: 4px solid transparent; transition: 0.3s; align-items: center; display: flex;
+        }
+        .nav-item:hover { background-color: #f0f5fa; }
+        .nav-item.active { background-color: #eaf1f7; font-weight: bold; color: #0b5aa6; border-left-color: #0b5aa6; }
+
+        /* CONTAINER (Bên phải) */
+        .container-right {
+            flex: 1; background-color: white; border-radius: 12px; position: relative;
+            display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        /* BẢNG DỮ LIỆU */
+        .table-wrapper { flex: 1; overflow-y: auto; padding: 15px; }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background-color: #f8f9fa; position: sticky; top: -15px; z-index: 10; }
+        th { padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; cursor: pointer; user-select: none; position: relative; }
+        th:hover { background-color: #e9ecef; }
+        td { padding: 12px; border-bottom: 1px solid #dee2e6; word-wrap: break-word; white-space: normal; }
         
-        .main-container { 
-            display: flex; 
-            flex: 1; 
-            overflow: hidden; 
-            justify-content: space-between; 
-            align-items: center; 
-            gap: 2%;
-        }
+        /* Cột Search Input trong Header */
+        .search-input { display: none; width: 100%; padding: 4px; margin-top: 5px; font-size: 0.9rem; border: 1px solid #ccc; border-radius: 4px; }
+        th.show-search .search-input { display: block; }
 
-        .side-banner {
-            flex: 1;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: white;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        }
+        /* Focus Dòng */
+        tbody tr { cursor: pointer; transition: 0.2s; }
+        tbody tr:hover { background-color: #f1f8ff; }
+        tbody tr.focused { background-color: #cce5ff; font-weight: 500; }
 
-        .side-banner img {
-            width: 88%;
-            height: 88%;
-            object-fit: contain;
+        /* FLOATING ACTION BUTTON (Nút xanh) */
+        .fab {
+            position: absolute; bottom: 20px; right: 20px;
+            width: 60px; height: 60px; border-radius: 50%; background-color: #28a745;
+            color: white; font-size: 30px; border: none; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(40, 167, 69, 0.4); display: flex; justify-content: center; align-items: center; transition: 0.3s;
         }
+        .fab:hover { background-color: #218838; transform: scale(1.05); }
 
-        .widget-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            grid-template-rows: repeat(2, 1fr);
-            gap: 40px;
-            flex: 0 0 50%;
-            max-height: 100%;
-            aspect-ratio: 1 / 1;
+        /* MODAL */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center;
         }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: #0b5aa6; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 0.9rem; color: #555; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .btn { padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-cancel { background-color: #e2e6ea; color: #333; }
+        .btn-save { background-color: #0b5aa6; color: white; }
 
-        .widget-box {
-            position: relative;
-            overflow: hidden;
-            background-color: white;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 2rem;
-            font-weight: bold;
-            color: #0b5aa6;
-            cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .widget-box:active {
-            transform: scale(0.98);
-        }
-
-        .widget-text {
-            position: relative;
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        .widget-slide-img {
-            padding: 10%;
-            position: absolute;
-            top: 100%;
-            text-align: center;
-            width: 100%;
-            height: 100%;
-            background-color: white;
-            transition: top 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-            z-index: 3;
-        }
-
-        .widget-slide-img img {
-            width: 88%;
-            height: 88%;
-            object-fit: contain;
-            margin: auto
-        }
-
-        .widget-box.active .widget-slide-img {
-            top: 0;
-        }
-      </style>
-   </head>
-   <body>
-      <div class="pos-wrapper">
-         <header class="header">
+        /* KHU VỰC THỐNG KÊ */
+        .dashboard-wrapper { display: none; padding: 20px; flex-direction: column; gap: 20px; height: 100%; }
+        .stats-cards { display: flex; gap: 20px; }
+        .card { flex: 1; background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 5px solid #0b5aa6; }
+        .card h3 { font-size: 0.9rem; color: #666; margin-bottom: 10px; }
+        .card .value { font-size: 1.5rem; font-weight: bold; color: #333; }
+        .chart-placeholder { flex: 1; border: 2px dashed #ccc; border-radius: 8px; display: flex; justify-content: center; align-items: center; color: #999; }
+        .nav-item img {  height: 24px; margin-right: 8px; }
+    
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="pos-wrapper">
+        <header class="header">
             <div class="header-left">
-               <div class="logo-container"><img src=".\img\logo.png" alt="CS24H Logo"></div>
-               <div class="user-info"><span>ID:</span><span>TÊN:</span></div>
+                <div class="logo-container"><img src=".\img\logo.png" alt="CS24H Logo"></div>
+                <div class="user-info"><span>ID:</span><span>TÊN:</span></div>
             </div>
             <div class="header-right">
-               <div class="header-actions">
-                  <div class="action-icon" id="btn-quay-lai"><span>🚪</span><span>Quay lại</span></div>
-
-               </div>
-               <div class="datetime" id="live-clock">đang tải...</div>
-            </div>
-         </header>
-         
-         <main class="main-container">
-            <div class="side-banner">
-                <img src=".\img\angel.png" alt="Banner Left Placeholder">
-            </div>
-
-            <div class="widget-grid">
-                <div class="widget-box" onclick="this.classList.toggle('active')">
-                    <span class="widget-text">Xem hóa đơn</span>
-                    <div class="widget-slide-img">
-                        <img src=".\img\HoaDon.png" alt="Ảnh Xem hóa đơn">
-                    </div>
+                <div class="header-actions">
+                    <div class="action-icon" id="btn-quay-lai"><img src =".\img\Logout.png" style="filter: invert(100%);"><span>Thoát</span></div>
                 </div>
-                <div class="widget-box" onclick="this.classList.toggle('active')">
-                    <span class="widget-text">Báo cáo</span>
-                    <div class="widget-slide-img">
-                        <img src=".\img\Report.png" alt="Ảnh Báo cáo">
-                    </div>
-                </div>
-                <div class="widget-box" onclick="this.classList.toggle('active')">
-                    <span class="widget-text">Nhập kho</span>
-                    <div class="widget-slide-img">
-                        <img src=".\img\Warehouse.png" alt="Ảnh Nhập kho">
-                    </div>
-                </div>
-                <div class="widget-box" onclick="this.classList.toggle('active')">
-                    <span class="widget-text">Nhân sự</span>
-                    <div class="widget-slide-img">
-                        <img src=".\img\HR.png" alt="Ảnh Nhân sự">
-                    </div>
-                </div>
+                <div class="datetime" id="live-clock">Đang tải...</div>
             </div>
+        </header>
 
-            <div class="side-banner">
-                <img src=".\img\angel.png" alt="Banner Right Placeholder">
+        <div class="main-content">
+            <nav class="sidebar">
+                <div class="nav-item active" data-target="sp"><img src=".\img\Warehouse.png" alt="Ảnh Nhập kho"> Sản phẩm</div>
+            </nav>
+
+            <div class="container-right">
+                
+                <div class="table-wrapper" id="table-view">
+                    <table id="main-table">
+                        <thead>
+                            <tr id="table-header">
+                                </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            </tbody>
+                    </table>
+                </div>
+
+
+                <button class="fab" id="fab-btn"></button>
             </div>
-         </main>
-      </div>
+        </div>
+    </div>
 
-      <script>
-        document.getElementById('btn-quay-lai').addEventListener('click', function() {
+    <div class="modal-overlay" id="form-modal">
+        <div class="modal-content">
+            <div class="modal-header" id="modal-title">Thêm mới</div>
+            <div id="modal-form-body">
+                </div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" onclick="closeModal()">Hủy</button>
+                <button class="btn btn-save" onclick="saveData()">Lưu thông tin</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- 0. Khởi tạo User Info ---
+    const token = sessionStorage.getItem('accessToken');
+
+    // --- 0. Khởi tạo User Info ---
+    document.addEventListener("DOMContentLoaded", () => {
+        if (!token) {
+            alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!");
+            window.location.href = 'login.html';
+            return;
+        }
+
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        
+        // Nhân viên thì check quyền là NHANVIEN (hoặc cho cả ADMIN nếu Quản lý mượn máy)
+        if (payload.role !== 'NHANVIEN' && payload.role !== 'ADMIN') {
+            alert("Bạn không có quyền truy cập vào trang này!");
+            sessionStorage.clear(); 
+            window.location.href = 'login.html';
+            return;
+        }
+
+        // Ưu tiên lấy ID của nhân viên
+        const id = sessionStorage.getItem('currentNhanVienId') || sessionStorage.getItem('currentQuanLyId');
+        const name = sessionStorage.getItem('currentNhanVienName') || sessionStorage.getItem('currentQuanLyName');
+        
+        const userInfoSpans = document.querySelectorAll('.user-info span');
+        if (userInfoSpans.length >= 2) {
+            if (id) userInfoSpans[0].textContent = `ID: ${id}`;
+            if (name) userInfoSpans[1].textContent = `TÊN: ${name.toUpperCase()}`;
+        }
+        
+        loadAndRenderTable();
+    });
+
+    document.getElementById('btn-quay-lai').addEventListener('click', () => {
+        
         window.location.href = 'orderPage.html';
     });
-        function updateDateTime() {
-            const now = new Date();
-            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // --- 1. Đồng Hồ ---
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('live-clock').textContent = now.toLocaleString('vi-VN');
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    // --- 2. Cấu hình API & Trạng thái ---
+    const API_BASE = 'http://localhost:8080/api';
+    const apiEndpoints = { sp: '/sanpham' };
+    let currentTab = 'sp'; 
+    let focusedRowData = null; 
+    let sortConfig = { column: null, order: 'asc' };
+    
+    const colDef = {
+        sp: ['id', 'ten', 'category', 'giaban', 'tonkho'],
+        nv: ['id', 'hoten', 'sdt', 'vaitro', 'trangthai'],
+        hd: ['id', 'khachHang', 'ngaylap', 'tongtien', 'trangthai']
+    };
+
+    const colNames = {
+        id: 'ID', ten: 'Tên Sản Phẩm', category: 'Danh mục', giaban: 'Giá Bán', tonkho: 'Tồn Kho',
+        hoten: 'Họ Tên', sdt: 'SĐT', vaitro: 'Vai Trò', trangthai: 'Trạng Thái',
+        khachHang: 'Khách Hàng', ngaylap: 'Ngày Lập', tongtien: 'Tổng Tiền'
+    };
+
+    // --- 3. BẢNG DỮ LIỆU ---
+    async function loadAndRenderTable() {
+        if (currentTab === 'tk' || currentTab === 'tm') return;
+        const head = document.getElementById('table-header');
+        const body = document.getElementById('table-body');
+        head.innerHTML = '<th>Đang tải dữ liệu...</th>'; body.innerHTML = '';
+
+        try {
+            const response = await fetch(API_BASE + apiEndpoints[currentTab], {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            // THÊM ĐOẠN NÀY VÀO:
+            if (response.status === 403 || response.status === 401) {
+                alert("Phiên đăng nhập hết hạn hoặc bạn không có quyền truy cập!");
+                window.location.href = 'login.html';
+                return;
+            }
+            const data = await response.json();
+            const cols = colDef[currentTab];
+
+            head.innerHTML = `<th>#</th>` + cols.map(col => `
+                <th onclick="handleHeaderClick(this, '${col}')">
+                    ${colNames[col]} ${sortConfig.column === col ? (sortConfig.order === 'asc' ? '↑' : '↓') : ''}
+                    <input type="text" class="search-input" placeholder="Tìm ${colNames[col]}..." onclick="event.stopPropagation()" onkeyup="handleSearch(event, '${col}')">
+                </th>
+            `).join('');
             
-            const dayName = days[now.getDay()];
-            const monthName = months[now.getMonth()];
-            const dateNumber = now.getDate();
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            
-            const timeString = `${dayName} ${monthName} ${dateNumber} ${hours}:${minutes}:${seconds}`;
-            document.getElementById('live-clock').textContent = timeString;
+            data.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.onclick = () => focusRow(tr, row);
+                let rowHtml = `<td>${index + 1}</td>`;
+                cols.forEach(col => {
+                    let cellValue = row[col] !== null ? row[col] : '';
+                    if (col === 'khachHang' && cellValue) cellValue = cellValue.sdt;
+                    if (col === 'giaban' || col === 'tongtien') cellValue = Number(cellValue).toLocaleString() + ' đ';
+                    if (col === 'trangthai' && currentTab === 'nv') {
+                        cellValue = cellValue === 1 ? '<span style="color:green; font-weight:bold;">Đang làm</span>' : '<span style="color:red">Nghỉ việc</span>';
+                    }
+                    if (col === 'tonkho') {
+                        cellValue = cellValue > 0 ? cellValue : '<span style="color:red">Hết hàng</span>';
+                    }
+                    rowHtml += `<td>${cellValue}</td>`;
+                });
+                tr.innerHTML = rowHtml;
+                body.appendChild(tr);
+            });
+            focusedRowData = null;
+            updateFabIcon();
+        } catch (error) {
+            head.innerHTML = '<th style="color:red">Lỗi kết nối Server! Vui lòng bật Spring Boot.</th>';
         }
-        setInterval(updateDateTime, 1000); 
-        updateDateTime();
-      </script>
-   </body>
+    }
+
+    function focusRow(trElement, rowData) {
+        document.querySelectorAll('#table-body tr').forEach(tr => tr.classList.remove('focused'));
+        if (focusedRowData && focusedRowData.id === rowData.id) {
+            focusedRowData = null; updateFabIcon(); return;
+        }
+        trElement.classList.add('focused');
+        focusedRowData = rowData;
+        updateFabIcon();
+    }
+
+    function handleHeaderClick(thElement, column) {
+        document.querySelectorAll('th').forEach(th => {
+            if (th !== thElement) th.classList.remove('show-search');
+        });
+        thElement.classList.toggle('show-search');
+        if (sortConfig.column === column) {
+            sortConfig.order = sortConfig.order === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortConfig.column = column; sortConfig.order = 'asc';
+        }
+    }
+
+    function handleSearch(event, column) {
+        if (event.key === 'Enter') {
+            const keyword = event.target.value.toLowerCase().trim();
+            const cols = colDef[currentTab];
+            const colIndex = cols.indexOf(column); 
+            const rows = document.querySelectorAll('#table-body tr');
+            
+            rows.forEach(row => {
+                const cell = row.querySelector(`td:nth-child(${colIndex + 2})`);
+                if (cell) {
+                    if (cell.textContent.toLowerCase().includes(keyword)) {
+                        row.style.display = ''; 
+                    } else {
+                        row.style.display = 'none'; row.classList.remove('focused');
+                    }
+                }
+            });
+            if (!document.querySelector('#table-body tr.focused')) {
+                focusedRowData = null; updateFabIcon();
+            }
+        }
+    }
+
+    // --- 4. FAB & Modal Logic ---
+    const fabBtn = document.getElementById('fab-btn');
+    const modal = document.getElementById('form-modal');
+
+    function updateFabIcon() {
+        if (currentTab === 'hd') {
+        } else {
+        }
+    }
+
+</script>
+</body>
 </html>

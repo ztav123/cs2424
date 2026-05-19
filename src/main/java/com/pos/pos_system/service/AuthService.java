@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.security.crypto.password.PasswordEncoder; 
+import com.pos.pos_system.security.JwtTokenProvider;
 
 @Service
 public class AuthService {
@@ -21,17 +23,44 @@ public class AuthService {
     @Autowired private NhanVienRepository nhanVienRepo;
     @Autowired private CaLamRepository caLamRepo;
     @Autowired private HoaDonRepository hoaDonRepo;
+    
+    @Autowired 
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired 
+    private JwtTokenProvider tokenProvider;
 
     @Transactional
     public Map<String, Object> loginAndManageShift(Integer newId, String password, Integer oldId, boolean createShift) {
         NhanVien nv = nhanVienRepo.findById(newId).orElse(null);
-        if (nv == null || !nv.getMkdangnhap().equals(password)|| nv.getTrangthai() == 0) return null; 
+        System.out.println("=== DEBUG ĐĂNG NHẬP ===");
+        System.out.println("1. ID từ Frontend gửi lên: " + newId);
+        System.out.println("2. Mật khẩu từ Frontend gửi lên: [" + password + "]");
+        if (nv != null) {
+            System.out.println("3. Mật khẩu mã hóa trong DB: [" + nv.getMkdangnhap() + "]");
+            System.out.println("4. Trạng thái hoạt động: " + nv.getTrangthai());
+            System.out.println("5. Kết quả so khớp: " + passwordEncoder.matches(password, nv.getMkdangnhap()));
+            System.out.println("5. MatKhau mã hóa: " + passwordEncoder.encode(password));
+            System.out.println("6. Trang thai nhan vien: " + (nv.getTrangthai() == 1 ? "Đang làm" : "Nghỉ việc"));
+             
+        } else {
+            System.out.println("3. KHÔNG TÌM THẤY NHÂN VIÊN TRONG DB!");
+        }
+        System.out.println("=======================");
+        if (nv == null || !passwordEncoder.matches(password, nv.getMkdangnhap()) || nv.getTrangthai() == 0) return null; 
+        
 
-        if ("ADMIN".equalsIgnoreCase(nv.getVaitro())) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("role", "ADMIN");
-            response.put("id", nv.getId());
-            response.put("hoten", nv.getHoten());
+        String role = "ADMIN".equalsIgnoreCase(nv.getVaitro()) ? "ADMIN" : "NHANVIEN";
+        String token = tokenProvider.generateToken(nv.getId(), role);
+
+        // 2. CHUẨN BỊ RESPONSE (Gắn thêm Token vào)
+        Map<String, Object> response = new HashMap<>();
+        response.put("role", role);
+        response.put("id", nv.getId());
+        response.put("hoten", nv.getHoten());
+        response.put("accessToken", token); // <-- ĐÂY LÀ ĐIỂM KHÁC BIỆT
+
+        if ("ADMIN".equalsIgnoreCase(role)) {
             return response; 
         }
 
@@ -85,23 +114,24 @@ public class AuthService {
             newShift.setTienmatBandau(beginCash); // Gán tiền mặt ban đầu
             caLamRepo.save(newShift);
         }
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("role", "NHANVIEN");
-        response.put("id", nv.getId());
-        response.put("hoten", nv.getHoten());
         return response;
     }
     @Transactional
     public Map<String, Object> employeeExit(Integer newId, String password) {
         NhanVien nv = nhanVienRepo.findById(newId).orElse(null);
-        if (nv == null || !nv.getMkdangnhap().equals(password)) return null; 
 
-        if ("ADMIN".equalsIgnoreCase(nv.getVaitro())) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("role", "ADMIN");
-            response.put("id", nv.getId());
-            response.put("hoten", nv.getHoten());
+        if (nv == null || !passwordEncoder.matches(password, nv.getMkdangnhap()) || nv.getTrangthai() == 0) return null; 
+
+        String role = "ADMIN".equalsIgnoreCase(nv.getVaitro()) ? "ADMIN" : "NHANVIEN";
+        String token = tokenProvider.generateToken(nv.getId(), role);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("role", role);
+        response.put("id", nv.getId());
+        response.put("hoten", nv.getHoten());
+        response.put("accessToken", token); 
+
+        if ("ADMIN".equalsIgnoreCase(role)) {
             return response; 
         }
         return null;

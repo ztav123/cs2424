@@ -364,40 +364,67 @@
     document.addEventListener("DOMContentLoaded", () => {
     if (!sessionStorage.getItem('isAppStarted')) {
         // Nếu vào đây nghĩa là vừa mới mở chương trình
-        // Ta xóa bỏ các cờ chuyển ca cũ còn sót lại trong localStorage
-        localStorage.removeItem('verifyNhanVien2');
-        localStorage.removeItem('isHandover');
-        localStorage.removeItem('handoverFromId');
-        localStorage.removeItem('isExit');
-        localStorage.removeItem('currentNhanVienId');
-        localStorage.removeItem('currentQuanLyId'); 
+        // Ta xóa bỏ các cờ chuyển ca cũ còn sót lại trong sessionStorage
+        sessionStorage.removeItem('isHandover');
+        sessionStorage.removeItem('handoverFromId');
+        sessionStorage.removeItem('isExit');
+        sessionStorage.removeItem('currentNhanVienId');
+        sessionStorage.removeItem('currentQuanLyId'); 
+        sessionStorage.removeItem('accessToken');
         
         // Đánh dấu đã khởi tạo thành công để không xóa ở các lần load trang tiếp theo
         sessionStorage.setItem('isAppStarted', 'true');
         console.log("Hệ thống khởi tạo mới: Đã dọn dẹp các cờ chuyển ca cũ.");
+        return alert("Chào mừng đến với Bình nguyên vô tận!");
     }
         const btnExit = document.querySelector('.btn-exit');
-        
+        const isExit = sessionStorage.getItem('isExit');
+        const isHandover = sessionStorage.getItem('isHandover');
+        const isPrinted = sessionStorage.getItem('isPrinted');
+        const oldId = sessionStorage.getItem('currentNhanVienId');
+        const oldToken = sessionStorage.getItem('accessToken');
+        const pendingPayloadStr = sessionStorage.getItem('pendingShiftPayload');
+        if (oldToken && !isExit && !isHandover) {
+            const payload = JSON.parse(atob(oldToken.split('.')[1]));
+            if (payload.role === 'ADMIN') {
+                alert("Đang xuất cho admin!!!");   
+                sessionStorage.clear();         
+                window.location.href = 'login.html';
+                return;
+            } 
+            else if (payload.role === 'NHANVIEN') {
+            alert("Quay về làm việc!!!");            
+            window.location.href = 'orderPage.html';
+            return;}
+        }
+        else if ((isExit === 'true' || isHandover === 'true') && isPrinted !== 'true') {
+            // Nếu đang ở trạng thái chờ chuyển ca hoặc đăng xuất nhưng chưa in bảng kê, thì cảnh báo bắt buộc phải in bảng kê trước khi có thể hủy thao tác
+            alert("Vui lòng in bảng kê trước khi hủy thao tác!");
+            window.location.href = 'KetCa.html';
+            return;
+        }
+        else if ((isExit === 'true' || isHandover === 'true') && isPrinted === 'true') {
+            // Nếu đang ở trạng thái chờ chuyển ca hoặc đăng xuất và đã in bảng kê, thì cảnh báo bắt buộc phải hủy thao tác để quay về orderPage (giữ nguyên phiên) hoặc tiếp tục xác minh để hoàn tất chuyển ca/đăng xuất
+            alert("Bạn đang ở trạng thái chờ xác minh chuyển ca/đăng xuất! Nhấn OK để tiếp tục nhờ nhân viên khác xác minh");
+            
+            return;
+        }
         if(btnExit) {
             btnExit.addEventListener('click', () => {
-                const isHandover = localStorage.getItem('isHandover');
-                const isExit = localStorage.getItem('isExit');
-                const verifyNhanVien2 = localStorage.getItem('verifyNhanVien2');
+                const isprinted = sessionStorage.getItem('isPrinted');
+                const isHandover = sessionStorage.getItem('isHandover');
+                const isExit = sessionStorage.getItem('isExit');
+                const pendingPayloadStr = sessionStorage.getItem('pendingShiftPayload');
 
-                if (verifyNhanVien2) {
+                if (isPrinted === 'true') {
+                    alert("Đang chờ xác minh! Vui lòng hoàn tất xác minh để hủy thao tác.");
                     document.getElementById("loginresult").innerHTML = "Không thể hủy thao tác lúc này vì đang trong quá trình xác minh!";
+                    return; // Chuyển về trang KetCa để hoàn tất xác minh (nếu chưa hoàn tất) hoặc chờ nhân viên khác xác minh
                 }
-                else if (isHandover === 'true'|| isExit === 'true') {
-                    // Đang ở chế độ chờ chuyển ca -> Hủy bỏ, quay về máy POS, giữ nguyên phiên
-                    localStorage.removeItem('isHandover');
-                    localStorage.removeItem('isExit');
-                    window.location.href = 'orderPage.html';
-                } else {
-                    // Chế độ đăng nhập bình thường -> Xóa rỗng ô nhập liệu
-                    document.getElementById("ID").value = "";
-                    document.getElementById("Password").value = "";
-                    document.getElementById("loginresult").innerHTML = "Đã hủy thao tác.";
-                    window.close(); // Đóng cửa sổ đăng nhập (nếu là cửa sổ riêng), nếu không sẽ ở lại trang này với ô input đã được reset
+                else if (!sessionStorage.getItem('accessToken')) {
+                    alert("Ài ố sì mà");
+                    window.close(); // Đóng cửa sổ trình duyệt nếu chưa đăng nhập (không có token)
+                    return;
                 }
             });
         }
@@ -408,129 +435,110 @@
     let isLoggingIn = false; 
 
     async function loginchecked() {
-        if (isLoggingIn) return; // Chặn spam click
+        if (isLoggingIn) return;
 
         const getid = document.getElementById("ID").value;
         const getpass = document.getElementById("Password").value;
-        const isExit = localStorage.getItem('isExit');
-        const oldId = localStorage.getItem('currentNhanVienId');
-        const isHandover = localStorage.getItem('isHandover');
-        const verifyNhanVien2 = localStorage.getItem('verifyNhanVien2');
-
-        if(isExit === 'true' && !isHandover) {
-            localStorage.setItem('handoverFromId', oldId);             
-            if(!verifyNhanVien2) {
-            let url = `http://localhost:8080/api/auth/exit?id=${getid}&password=${getpass}`;
-            const response = await fetch(url, { method: 'POST' });
-            const userData = await response.json();
-            if (response.ok) {
-                localStorage.setItem('currentQuanLyId', userData.id);
-                localStorage.setItem('currentQuanLyName', userData.hoten);
-                window.location.href = 'KetCa.html';
-            } else {
-                document.getElementById("loginresult").innerHTML = await response.text(); 
-            }
-            return;
-            }
-            else {
-
-                if (verifyNhanVien2 !== getid) {
-                document.getElementById("loginresult").innerHTML = `Từ chối: Chỉ quản lý (ID: ${verifyNhanVien2}) mới được đăng nhập kết thúc phiên làm việc!`;
-                return;
-                }
-                let url = `http://localhost:8080/api/auth/exit?id=${getid}&password=${getpass}`;
-                const response = await fetch(url, { method: 'POST' });
-            if (response.ok) {
-                const item = document.createElement("div");
-                item.className = "loginresult";
-                item.setAttribute("style", "color: green;");
-                document.getElementById("loginresult").innerHTML = "Xác minh thành công! Nhân viên vui lòng chụp lại ảnh màn hình."; // Đóng cửa sổ đăng nhập sau khi xác minh thành công
-                localStorage.removeItem('isHandover');
-                localStorage.removeItem('isExit');
-                localStorage.removeItem('verifyNhanVien2');
-            } else {
-                document.getElementById("loginresult").innerHTML = "Sai mật khẩu quản lý! Vui lòng thử lại."; 
-            }
-        }
-        }    
-        else //không phải quản lý vào thì mới check chuyển ca, nếu là quản lý thì cho vào luôn và 
-        {
-        // BƯỚC 1: Xử lý chặn nhân viên đang trực tự chuyển ca cho chính mình
-        if (isHandover === 'true' && oldId === getid) {
-            document.getElementById("loginresult").innerHTML = "Từ chối: Không thể chuyển ca cho chính mình!";
-            return; 
-        }
         
-        // BƯỚC 2: Xử lý lần đăng nhập thứ 3 (Bắt buộc nhân viên nhận ca phải đăng nhập xác minh)
-        if (verifyNhanVien2) {
-            if (verifyNhanVien2 !== getid) {
-                document.getElementById("loginresult").innerHTML = `Từ chối: Chỉ nhân viên nhận ca (ID: ${verifyNhanVien2}) mới được đăng nhập mở phiên!`;
-                return;
-            }
-        }
+        // Đọc trạng thái từ sessionStorage dạng chuỗi và chuyển về Boolean cho chuẩn xác
+        const isExit = sessionStorage.getItem('isExit') === 'true';
+        const isHandover = sessionStorage.getItem('isHandover') === 'true';
+        const isPrinted = sessionStorage.getItem('isPrinted') === 'true';
+        
+        const handoverFromId = sessionStorage.getItem('handoverFromId');
+        const oldToken = sessionStorage.getItem('accessToken');
+        const pendingPayloadStr = sessionStorage.getItem('pendingShiftPayload');
 
         try {
             isLoggingIn = true; 
             document.querySelector('.btn-login').style.opacity = "0.5"; 
             document.getElementById("loginresult").innerHTML = "Đang xử lý...";
 
-            // Bổ sung tham số createShift để điều khiển Backend
-            let url = `http://localhost:8080/api/auth/login?id=${getid}&password=${getpass}`;
-            
-            if (isHandover === 'true' && oldId && !verifyNhanVien2) {
-                // ĐĂNG NHẬP LẦN 2 (Uỷ quyền): Báo Backend KHÔNG tạo ca làm, chỉ check pass
-                url += `&oldId=${oldId}&createShift=false`; 
-            } else {
-                // ĐĂNG NHẬP LẦN 3 (Hoặc bình thường): Báo Backend TẠO ca làm mới
-                url += `&createShift=true`;
+            // ====================================================================
+            // LUỒNG 1: XÁC MINH DANH TÍNH NGƯỜI THỨ HAI & LƯU LOG KẾT CA
+            // ====================================================================
+            if ((isExit || isHandover) && isPrinted) {
+                if (!pendingPayloadStr || !oldToken) {
+                    document.getElementById("loginresult").innerHTML = "Lỗi dữ liệu phiên! Vui lòng quay lại làm lại.";
+                    return;
+                }
+
+                // Bước 1: Gọi API kiểm tra tài khoản xác minh (Không tạo ca mới)
+                let authUrl = `http://localhost:8080/api/auth/login?id=${getid}&password=${encodeURIComponent(getpass)}&createShift=false`;
+                const authRes = await fetch(authUrl, { method: 'POST' });
+                
+                if (!authRes.ok) {
+                    document.getElementById("loginresult").innerHTML = "Thông tin tài khoản xác minh không chính xác!"; 
+                    return; 
+                }
+                const newUserData = await authRes.json();
+
+                // Bước 2: Ràng buộc nghiệp vụ kiểm tra quyền trực tiếp từ JSON trả về
+                if (isExit) {
+                    if (newUserData.role !== 'ADMIN') {
+                        document.getElementById("loginresult").innerHTML = "Chủ tài khoản không có quyền Admin! Từ chối kết thúc phiên.";
+                        return;
+                    }
+                } else if (isHandover) {
+                    if (newUserData.role !== 'NHANVIEN' || newUserData.id == handoverFromId) {
+                        document.getElementById("loginresult").innerHTML = "Yêu cầu tài khoản nhân viên khác xác minh ca trực!";
+                        return;
+                    }
+                }
+
+                // Bước 3: Thực hiện đẩy Payload lưu tiền mặt đếm được lên Database bằng Token cũ
+                const saveRes = await fetch('http://localhost:8080/api/ketca/save-log', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Authorization': `Bearer ${oldToken}` 
+                    },
+                    body: pendingPayloadStr
+                });
+
+                if (!saveRes.ok) {
+                    // Do Backend đã mở CORS lỗi, lệnh này sẽ đọc được chính xác thông báo lỗi từ Server gửi lên
+                    const errorMsg = await saveRes.text();
+                    document.getElementById("loginresult").innerHTML = `Lỗi hệ thống: ${errorMsg}`;
+                    return;
+                }
+                downloadLatestPdf();
+                // Bước 4: Hoàn thành lưu trữ dữ liệu an toàn -> Giải phóng bộ nhớ và reset giao diện
+                
+                alert("Xác minh hoàn tất! Dữ liệu ca làm việc đã được chốt sổ an toàn xuống Database.");
+                
+                return; 
             }
 
+            // ====================================================================
+            // LUỒNG 2: ĐĂNG NHẬP HỆ THỐNG BÌNH THƯỜNG (Mở ca làm việc đầu ngày)
+            // ====================================================================
+            let url = `http://localhost:8080/api/auth/login?id=${getid}&password=${encodeURIComponent(getpass)}&createShift=true`;
             const response = await fetch(url, { method: 'POST' });
             
             if (response.ok) {
                 const userData = await response.json();
+                sessionStorage.setItem('accessToken', userData.accessToken);
                 
-                // KIỂM TRA ROLE
                 if (userData.role === 'ADMIN') {
-                    if (isHandover === 'true' || verifyNhanVien2) {
-                        document.getElementById("loginresult").innerHTML = "Hệ thống đang trong quá trình chuyển ca, Quản lý không thể thao tác lúc này!";
-                        isLoggingIn = false;
-                        document.querySelector('.btn-login').style.opacity = "1";
-                        return;
-                    }
-                    localStorage.setItem('currentQuanLyId', userData.id);
-                    localStorage.setItem('currentQuanLyName', userData.hoten);
+                    sessionStorage.setItem('currentQuanLyId', userData.id);
+                    sessionStorage.setItem('currentQuanLyName', userData.hoten);
                     window.location.href = 'TienIchQuanLy.html';
-                    return; 
-                }
-
-                // NẾU LÀ NHÂN VIÊN
-                localStorage.setItem('currentNhanVienId', userData.id);
-                localStorage.setItem('currentNhanVienName', userData.hoten);
-                
-                if (isHandover === 'true') {
-                    // Thành công bước uỷ quyền, chuyển sang trang Kết ca
-                    localStorage.setItem('handoverFromId', oldId); 
-                    localStorage.removeItem('isHandover'); 
-                    window.location.href = 'KetCa.html';   
                 } else {
-                    // Đăng nhập bình thường hoặc Thành công bước 3 (Xác minh)
-                    if (verifyNhanVien2) {
-                        // Xóa cờ đi để máy POS trở lại trạng thái bình thường cho các lần sau
-                        localStorage.removeItem('verifyNhanVien2'); 
-                    }
+                    sessionStorage.setItem('currentNhanVienId', userData.id);
+                    sessionStorage.setItem('currentNhanVienName', userData.hoten);
                     window.location.href = 'orderPage.html'; 
                 }
             } else {
                 document.getElementById("loginresult").innerHTML = await response.text(); 
             }
         } catch (error) {
-            document.getElementById("loginresult").innerHTML = "Lỗi kết nối máy chủ!";
+            document.getElementById("loginresult").innerHTML = "Lỗi xử lý hệ thống hoặc kết nối cục bộ thất bại!";
+            console.error(error);
         } finally {
-            // Luôn reset lại trạng thái nút (nếu không chuyển trang)
             isLoggingIn = false; 
             document.querySelector('.btn-login').style.opacity = "1";
-        }}
+        }
     }
     //numpad input
     // Biến để lưu trữ ô input hiện đang được chọn
@@ -589,6 +597,85 @@
             // Nếu đang ở ô Password mà nhấn Enter thì thực hiện Login
             console.log("Đang đăng nhập với:", idInput.value, passwordInput.value);
             // Gọi hàm submit form của bạn ở đây
+        }
+    }
+    async function downloadPdf(id) {
+        if (window.app) {
+            // Dành cho ứng dụng JavaFX Desktop
+            window.app.downloadPdf(id.toString()); 
+        } else {
+            // Dành cho giao diện Web (Browser)
+            try {
+                const token = sessionStorage.getItem('accessToken');
+                if (!token) {
+                    alert("Phiên đăng nhập không hợp lệ!");
+                    return;
+                }
+
+                // 1. Dùng fetch để gọi API và KẸP TOKEN VÀO HEADER
+                const response = await fetch(`http://localhost:8080/api/ketca/export-pdf/${id}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}` 
+                    }
+                });
+
+                if (!response.ok) {
+                    alert("Lỗi tải file! Vui lòng kiểm tra quyền hoặc ID ca làm.");
+                    return;
+                }
+
+                // 2. Lấy dữ liệu file dưới dạng Blob (Nhị phân)
+                const blob = await response.blob();
+
+                // 3. Tạo một URL ảo (Object URL) trỏ tới file Blob vừa tải
+                const url = window.URL.createObjectURL(blob);
+
+                // 4. Tạo một thẻ <a> ẩn, gán URL và ép click để tải file
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `BaoCao_KetCa_${id}.pdf`; // Tên file tải xuống
+                
+                document.body.appendChild(a);
+                a.click();
+
+                // 5. Dọn dẹp URL ảo và thẻ <a> để giải phóng bộ nhớ
+                window.URL.revokeObjectURL(url);
+                a.remove();
+
+            } catch (error) {
+                console.error("Lỗi khi tải file PDF:", error);
+                alert("Lỗi kết nối khi xuất PDF!");
+            }
+        }
+        sessionStorage.clear(); 
+        sessionStorage.removeItem('isAppStarted');
+        alert("Đã in bảng kê thành công!");
+        window.location.href = 'login.html';    
+    }
+    async function downloadLatestPdf() {
+        try {
+            const token = sessionStorage.getItem('accessToken');
+            const response = await fetch('http://localhost:8080/api/ketca/logs-today', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!response.ok) throw new Error('Không thể tải danh sách ca làm việc.');
+            const logs = await response.json();
+
+            const finishedLogs = logs.filter(log => log.ketthuc !== null);
+            if (finishedLogs.length === 0) return alert('Chưa có ca làm nào được kết thúc!');
+
+            finishedLogs.sort((a, b) => new Date(b.ketthuc) - new Date(a.ketthuc));
+            const latestId = finishedLogs[0].id;
+
+            // Chuyển ID tìm được vào hàm downloadPdf đã sửa ở trên để nó xử lý kẹp Token
+            await downloadPdf(latestId); 
+
+        } catch (error) {
+            console.error('Lỗi tự động tải PDF:', error);
+            alert('Lỗi hệ thống: ' + error.message);
         }
     }
 </script>
