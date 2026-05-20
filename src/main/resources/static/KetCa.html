@@ -227,6 +227,7 @@
             tbody.appendChild(tr);
         });
         document.getElementById("grand-total").innerText = `${formatmoney(grandtotal)} đ`;
+        sessionStorage.setItem('grand-total', grandtotal.toString());
     };
 
     const selectrow = (index) => {
@@ -313,18 +314,16 @@
 
                 // --- 4.3. ĐỔ DỮ LIỆU RA GIAO DIỆN ---
                 dbData.forEach((log, index) => {
-                     // Sử dụng batdau từ Entity mới
-                     const dateObj = new Date(log.batdau);
-                     const dateStr = dateObj.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
-
-                     // Tính toán số liệu
-                     const tienmatBandau = log.tienmatBandau || 0;
-                     const heThong = log.tongDoanhthu || 0;
-                     const thucTe = log.tienmatKetca || 0;
-                     const tienNganhang = log.tienNganhang || 0;
-                     const canNop = heThong - tienNganhang + tienmatBandau;
-                     const chenhLech = thucTe - canNop;
-                     const deviationStyle = chenhLech < 0 ? "color:red; font-weight:bold;" : "color:#1a9e2a; font-weight:bold;";
+                    const dateObj = new Date(log.batdau);
+                    const dateStr = dateObj.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+                    
+                    const thucTe = parseInt(sessionStorage.getItem('grand-total')) || 0;
+                    const tienmatBandau = parseInt(log.tienmatBandau) || 0;
+                    const heThong = parseInt(log.tongDoanhthu) || 0;
+                    const tienNganhang = parseInt(log.tienNganhang) || 0;
+                    const canNop = heThong - tienNganhang + tienmatBandau;
+                    const chenhLech = thucTe - canNop;
+                    const deviationStyle = chenhLech < 0 ? "color:red; font-weight:bold;" : "color:#1a9e2a; font-weight:bold;";
 
                     if (log.isFake && activeShift) {
                         tienmatBandau = activeShift.tienmatBandau || 0;
@@ -365,24 +364,22 @@
     }
 
     async function downloadPdf(id) {
-        if (window.app) {
-            // Dành cho ứng dụng JavaFX Desktop
-            window.app.downloadPdf(id.toString()); 
-        } else {
-            // Dành cho giao diện Web (Browser)
-            try {
-                const token = sessionStorage.getItem('accessToken');
-                if (!token) {
-                    alert("Phiên đăng nhập không hợp lệ!");
-                    return;
-                }
+        const token = sessionStorage.getItem('accessToken');
+        if (!token) {
+            alert("Phiên đăng nhập không hợp lệ!");
+            return;
+        }
 
-                // 1. Dùng fetch để gọi API và KẸP TOKEN VÀO HEADER
+        if (window.app) {
+            window.app.downloadPdf(`/api/ketca/export-pdf/${id}`, token, `BaoCao_KetCa_${id}.pdf`); 
+        } else {
+            // ==========================================
+            // 2. DÀNH CHO TRÌNH DUYỆT WEB
+            // ==========================================
+            try {
                 const response = await fetch(`http://localhost:8080/api/ketca/export-pdf/${id}`, {
                     method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}` 
-                    }
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
 
                 if (!response.ok) {
@@ -390,25 +387,16 @@
                     return;
                 }
 
-                // 2. Lấy dữ liệu file dưới dạng Blob (Nhị phân)
                 const blob = await response.blob();
-
-                // 3. Tạo một URL ảo (Object URL) trỏ tới file Blob vừa tải
                 const url = window.URL.createObjectURL(blob);
-
-                // 4. Tạo một thẻ <a> ẩn, gán URL và ép click để tải file
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = url;
-                a.download = `BaoCao_KetCa_${id}.pdf`; // Tên file tải xuống
-                
+                a.download = `BaoCao_KetCa_${id}.pdf`; 
                 document.body.appendChild(a);
                 a.click();
-
-                // 5. Dọn dẹp URL ảo và thẻ <a> để giải phóng bộ nhớ
                 window.URL.revokeObjectURL(url);
                 a.remove();
-
             } catch (error) {
                 console.error("Lỗi khi tải file PDF:", error);
                 alert("Lỗi kết nối khi xuất PDF!");
@@ -437,11 +425,15 @@
         const cashCounted = rowsdata.reduce((sum, row) => sum + row.total, 0); 
 
         // ĐÓNG GÓI PAYLOAD HOÀN CHỈNH MANG THEO THỜI GIAN ĐỊA PHƯƠNG
+        // Sinh ra chuỗi thời gian Local chuẩn ISO (Ví dụ: "2026-05-19T21:41:00")
+        const now = new Date();
+        const localTime = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 19);
+
         const payload = {
             nhanVienId: parseInt(nhanVienId), 
             tienmat: cashCounted, 
             quanly: isExit,
-            ketThucTime: new Date().toISOString() // Khóa mốc thời gian kết ca tại đây!
+            ketThucTime: localTime // Sử dụng giờ chuẩn Local
         };
 
         sessionStorage.setItem('pendingShiftPayload', JSON.stringify(payload));

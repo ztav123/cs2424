@@ -1,4 +1,6 @@
 package com.pos.pos_system.entity;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -9,13 +11,19 @@ import lombok.Data;
 public class CTHD {
     
     @Id
-    @Column(name = "hoadon_id")
-    private String hoadonid;
+    @ManyToOne
+    @JoinColumn(name = "hoadon_id", referencedColumnName = "id")
+    @JsonIgnore
+    private HoaDon hoadon;
 
     @Id
-    @Column(name = "sanpham_id") // BỔ SUNG DÒNG NÀY
-    private Integer sanphamid;
+    @ManyToOne
+    @JoinColumn(name = "sanpham_id", referencedColumnName = "id")
+    private SanPham sanPham;
 
-    private Integer soluong;
-    private Integer dongia;
+    @Column(name = "soluong")
+    private Integer soLuong;
+
+    @Column(name = "dongia")
+    private Double donGia; // Chuyển từ Integer sang Double để đồng bộ kiểu số với cột tongtien của HoaDon
 }

@@ -259,7 +259,8 @@
                 window.location.href = 'login.html';
                 return;
             }
-            const data = await response.json();
+            const responseData = await response.json();
+            const data = responseData.content ? responseData.content : responseData; 
             const cols = colDef[currentTab];
 
             head.innerHTML = `<th>#</th>` + cols.map(col => `
@@ -357,106 +358,106 @@
     fabBtn.onclick = () => { if (!(currentTab === 'hd' && !focusedRowData)) openModal(); };
 
     async function openModal() {
-        const formBody = document.getElementById('modal-form-body');
-        formBody.innerHTML = '<p style="text-align:center;">Đang tải dữ liệu...</p>'; // Hiển thị trạng thái chờ
+    const formBody = document.getElementById('modal-form-body');
+    formBody.innerHTML = '<p style="text-align:center;">Đang tải dữ liệu...</p>'; 
+    
+    if (currentTab === 'hd') {
+        document.getElementById('modal-title').innerText = 'Chi tiết Hóa Đơn: ' + focusedRowData.id;
         
-        if (currentTab === 'hd') {
-            document.getElementById('modal-title').innerText = 'Chi tiết Hóa Đơn: ' + focusedRowData.id;
-            document.querySelector('.btn-save').style.display = 'none'; // Ẩn nút lưu vì đây là form chỉ xem
-            modal.style.display = 'flex'; // Mở modal lên trước để người dùng thấy chữ "Đang tải"
+        // ĐÃ SỬA: Cho phép HIỂN THỊ nút lưu để Quản lý nhấn lưu sau khi đổi trạng thái đơn
+        document.querySelector('.btn-save').style.display = 'inline-block'; 
+        modal.style.display = 'flex'; 
 
-            try {
-                // FETCH THEO ĐÚNG FORMAT YÊU CẦU
-                const res = await fetch(`http://localhost:8080/api/hoadon/${focusedRowData.id}`, {
-                    headers: { 'Authorization': `Bearer ${sessionStorage.getItem('accessToken')}` }
-                });
+        try {
+            const res = await fetch(`http://localhost:8080/api/hoadon/${focusedRowData.id}`, {
+                headers: { 'Authorization': `Bearer ${sessionStorage.getItem('accessToken')}` }
+            });
 
-                if (res.status === 403 || res.status === 401) {
-                    alert("Phiên đăng nhập hết hạn hoặc bạn không có quyền. Vui lòng đăng nhập lại!");
-                    window.location.href = 'login.html';
-                    return;
-                }
-
-                if (res.ok) {
-                    const hoadon = await res.json();
-                    
-                    // 1. Dựng phần Header thông tin chung
-                    let htmlContent = `
-                        <div style="margin-bottom: 15px; font-size: 0.95rem; line-height: 1.6; border-bottom: 1px dashed #ccc; padding-bottom: 10px;">
-                            <p><b>Khách hàng:</b> ${hoadon.khachHang ? hoadon.khachHang.ten + ' (' + hoadon.khachHang.sdt + ')' : 'Khách lẻ'}</p>
-                            <p><b>Ngày lập:</b> ${new Date(hoadon.ngaylap).toLocaleString('vi-VN')}</p>
-                            <p><b>Thanh toán:</b> ${hoadon.phuongthucTt || 'N/A'}</p>
-                        </div>
-                        
-                        <div style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;">
-                            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; font-weight: bold; border-bottom: 2px solid #0b5aa6; padding-bottom: 5px;">
-                                <div>Tên SP</div>
-                                <div style="text-align: right;">Đơn giá</div>
-                                <div style="text-align: center;">SL</div>
-                                <div style="text-align: right;">T.Tiền</div>
-                            </div>
-                    `;
-
-                    // Lấy danh sách chi tiết (Lưu ý: Tùy Backend bạn đặt tên list này là chiTiet hay chiTietHoaDons)
-                    const danhSachChiTiet = hoadon.chiTiet || hoadon.chiTietHoaDons || [];
-                    
-                    if (danhSachChiTiet.length === 0) {
-                        htmlContent += `<p style="text-align:center; margin-top: 10px; color: #777;">Chưa có chi tiết sản phẩm.</p>`;
-                    } else {
-                        // 2. Render từng dòng sản phẩm
-                        danhSachChiTiet.forEach(item => {
-                            const tenSp = item.sanPham ? item.sanPham.ten : 'Sản phẩm đã xóa';
-                            const donGia = item.donGia || 0;
-                            const soLuong = item.soLuong || 0;
-                            const thanhTien = donGia * soLuong;
-                            
-                            htmlContent += `
-                                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; border-bottom: 1px dashed #eee; padding: 8px 0; font-size: 0.9rem;">
-                                    <div>${tenSp}</div>
-                                    <div style="text-align: right;">${donGia.toLocaleString('vi-VN')}</div>
-                                    <div style="text-align: center;">${soLuong}</div>
-                                    <div style="text-align: right;">${thanhTien.toLocaleString('vi-VN')}</div>
-                                </div>
-                            `;
-                        });
-                    }
-
-                    // 3. Dựng phần Footer Tổng tiền
-                    htmlContent += `
-                        </div>
-                        <div style="margin-top: 15px; padding-top: 10px; border-top: 2px solid #333; text-align: right; font-size: 1.2rem;">
-                            <b>Tổng cộng: <span style="color: #0b5aa6;">${Number(hoadon.tongtien).toLocaleString('vi-VN')} VNĐ</span></b>
-                        </div>
-                    `;
-                    
-                    formBody.innerHTML = htmlContent;
-
-                } else {
-                    formBody.innerHTML = '<p style="color:red; text-align:center;">Lỗi không thể tải chi tiết hóa đơn từ máy chủ!</p>';
-                }
-            } catch (error) {
-                console.error("Lỗi Fetch Chi tiết Hóa đơn:", error);
-                formBody.innerHTML = '<p style="color:red; text-align:center;">Lỗi mạng hoặc máy chủ không phản hồi!</p>';
+            if (res.status === 403 || res.status === 401) {
+                alert("Phiên đăng nhập hết hạn hoặc bạn không có quyền. Vui lòng đăng nhập lại!");
+                window.location.href = 'login.html';
+                return;
             }
 
-        } else {
-            // =========================================================================
-            // Logic Form Thêm/Sửa cho Sản phẩm (sp) và Nhân viên (nv) - Giữ nguyên
-            // =========================================================================
-            document.querySelector('.btn-save').style.display = 'inline-block';
-            const isEdit = focusedRowData !== null;
-            document.getElementById('modal-title').innerText = isEdit ? 'Sửa thông tin' : 'Thêm mới';
-            
-            colDef[currentTab].forEach(col => {
-                if (col === 'id' && !isEdit) return; 
-                const value = isEdit ? focusedRowData[col] : '';
-                let inputHtml = `<input type="text" id="input-${col}" value="${value}" ${col === 'id' ? 'disabled' : ''}>`;
-                if (col === 'trangthai' && currentTab === 'nv') {
-                    inputHtml = `<select id="input-${col}"><option value="1" ${value == 1 ? 'selected' : ''}>Đang làm</option><option value="0" ${value == 0 ? 'selected' : ''}>Nghỉ việc</option></select>`;
+            if (res.ok) {
+                const hoadon = await res.json();
+                
+                // ĐÃ SỬA: Biến trường Trạng thái thành một thẻ <select> dropdown để tùy biến chọn lựa
+                let htmlContent = `
+                    <div style="margin-bottom: 15px; font-size: 0.95rem; line-height: 1.6; border-bottom: 1px dashed #ccc; padding-bottom: 10px;">
+                        <p><b>Khách hàng:</b> ${hoadon.khachHang ? hoadon.khachHang.hoten + ' (' + hoadon.khachHang.sdt + ')' : 'Khách lẻ'}</p>
+                        <p><b>Ngày lập:</b> ${new Date(hoadon.ngaylap).toLocaleString('vi-VN')}</p>
+                        <p><b>Thanh toán:</b> ${hoadon.phuongthucTt || 'N/A'}</p>
+                        <p style="margin-top: 5px;">
+                            <b>Trạng thái đơn:</b>
+                            <select id="update-hd-trangthai" style="padding: 4px 8px; border-radius: 6px; font-weight: bold; border: 1px solid #0b5aa6; outline: none; margin-left: 5px;">
+                                <option value="CHO_THANH_TOAN" ${hoadon.trangthai === 'CHO_THANH_TOAN' ? 'selected' : ''}>CHO_THANH_TOAN</option>
+                                <option value="HOAN_THANH" ${hoadon.trangthai === 'HOAN_THANH' ? 'selected' : ''}>HOAN_THANH</option>
+                                <option value="THAT_BAI" ${hoadon.trangthai === 'THAT_BAI' ? 'selected' : ''}>THAT_BAI</option>
+                            </select>
+                        </p>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; font-weight: bold; border-bottom: 2px solid #0b5aa6; padding-bottom: 5px;">
+                            <div>Tên SP</div>
+                            <div style="text-align: right;">Đơn giá</div>
+                            <div style="text-align: center;">SL</div>
+                            <div style="text-align: right;">T.Tiền</div>
+                        </div>
+                `;
+
+                const danhSachChiTiet = hoadon.chiTiet || [];
+                if (danhSachChiTiet.length === 0) {
+                    htmlContent += `<p style="text-align:center; margin-top: 10px; color: #777;">Chưa có chi tiết sản phẩm.</p>`;
+                } else {
+                    danhSachChiTiet.forEach(item => {
+                        const tenSp = item.sanPham?.ten || 'Món đã xóa';
+                        const donGia = item.donGia || 0;
+                        const soLuong = item.soLuong || 0;
+                        const thanhTien = donGia * soLuong;
+                        
+                        htmlContent += `
+                            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; border-bottom: 1px dashed #eee; padding: 6px 0; font-size: 0.9rem;">
+                                <div>${tenSp}</div>
+                                <div style="text-align: right;">${donGia.toLocaleString('vi-VN')}</div>
+                                <div style="text-align: center;">${soLuong}</div>
+                                <div style="text-align: right;">${thanhTien.toLocaleString('vi-VN')}</div>
+                            </div>
+                        `;
+                    });
                 }
-                formBody.innerHTML += `<div class="form-group"><label>${colNames[col]}</label>${inputHtml}</div>`;
-            });
-            modal.style.display = 'flex';
+
+                htmlContent += `
+                    </div>
+                    <div style="margin-top: 15px; padding-top: 10px; border-top: 2px solid #333; text-align: right; font-size: 1.2rem;">
+                        <b>Tổng cộng: <span style="color: #0b5aa6;">${Number(hoadon.tongtien).toLocaleString('vi-VN')} VNĐ</span></b>
+                    </div>
+                `;
+                
+                formBody.innerHTML = htmlContent;
+            } else {
+                formBody.innerHTML = '<p style="color:red; text-align:center;">Lỗi không thể tải chi tiết hóa đơn từ máy chủ!</p>';
+            }
+        } catch (error) {
+            console.error("Lỗi Fetch Chi tiết Hóa đơn:", error);
+            formBody.innerHTML = '<p style="color:red; text-align:center;">Lỗi mạng hoặc máy chủ không phản hồi!</p>';
+        }
+    } else {
+        document.querySelector('.btn-save').style.display = 'inline-block';
+        const isEdit = focusedRowData !== null;
+        document.getElementById('modal-title').innerText = isEdit ? 'Sửa thông tin' : 'Thêm mới';
+        
+        colDef[currentTab].forEach(col => {
+            if (col === 'id' && !isEdit) return; 
+            const value = isEdit ? focusedRowData[col] : '';
+            let inputHtml = `<input type="text" id="input-${col}" value="${value}" ${col === 'id' ? 'disabled' : ''}>`;
+            if (col === 'trangthai' && currentTab === 'nv') {
+                inputHtml = `<select id="input-${col}"><option value="1" ${value == 1 ? 'selected' : ''}>Đang làm</option><option value="0" ${value == 0 ? 'selected' : ''}>Nghỉ việc</option></select>`;
+            }
+            formBody.innerHTML += `<div class="form-group"><label>${colNames[col]}</label>${inputHtml}</div>`;
+        });
+        modal.style.display = 'flex';
         }
     }
 
@@ -470,8 +471,33 @@
         });
         if(currentTab === 'nv' && !focusedRowData) payload.mkdangnhap = "123456"; 
         if (currentTab === 'hd') {
-            closeModal(); return;
+        const selectStatus = document.getElementById('update-hd-trangthai').value;
+        const invoiceId = focusedRowData.id;
+        
+        try {
+            const endpoint = `${API_BASE}/checkout/update-status/${invoiceId}?status=${selectStatus}`;
+            const res = await fetch(endpoint, {
+                method: 'PUT',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (res.status === 403 || res.status === 401) {
+                alert("Phiên đăng nhập hết hạn. Không thể sửa đổi!");
+                return;
+            }
+            
+            if (res.ok) {
+                alert('Cập nhật trạng thái hóa đơn thành công!');
+                closeModal();
+                loadAndRenderTable(); // Tải lại bảng hóa đơn để cập nhật UI mới ngoài danh sách
+            } else {
+                alert('Cập nhật thất bại, mã lỗi: ' + res.status);
+            }
+        } catch (err) {
+            alert('Lỗi kết nối mạng khi cập nhật hóa đơn!');
         }
+        return; // Ngắt hàm tại đây không chạy xuống luồng Sản Phẩm/Nhân Viên bên dưới
+    }
         const isEdit = focusedRowData !== null;
         const endpoint = API_BASE + apiEndpoints[currentTab] + (isEdit ? `/${focusedRowData.id}` : '');
         try {

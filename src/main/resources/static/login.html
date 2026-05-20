@@ -600,24 +600,25 @@
         }
     }
     async function downloadPdf(id) {
-        if (window.app) {
-            // Dành cho ứng dụng JavaFX Desktop
-            window.app.downloadPdf(id.toString()); 
-        } else {
-            // Dành cho giao diện Web (Browser)
-            try {
-                const token = sessionStorage.getItem('accessToken');
-                if (!token) {
-                    alert("Phiên đăng nhập không hợp lệ!");
-                    return;
-                }
+        const token = sessionStorage.getItem('accessToken');
+        if (!token) {
+            alert("Phiên đăng nhập không hợp lệ!");
+            return;
+        }
 
-                // 1. Dùng fetch để gọi API và KẸP TOKEN VÀO HEADER
+        if (window.app) {
+            // ==========================================
+            // 1. DÀNH CHO ỨNG DỤNG JAVAFX DESKTOP
+            // ==========================================
+            window.app.downloadPdf(`/api/ketca/export-pdf/${id}`, token, `BaoCao_KetCa_${id}.pdf`); 
+        } else {
+            // ==========================================
+            // 2. DÀNH CHO TRÌNH DUYỆT WEB
+            // ==========================================
+            try {
                 const response = await fetch(`http://localhost:8080/api/ketca/export-pdf/${id}`, {
                     method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}` 
-                    }
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
 
                 if (!response.ok) {
@@ -625,35 +626,37 @@
                     return;
                 }
 
-                // 2. Lấy dữ liệu file dưới dạng Blob (Nhị phân)
                 const blob = await response.blob();
-
-                // 3. Tạo một URL ảo (Object URL) trỏ tới file Blob vừa tải
                 const url = window.URL.createObjectURL(blob);
-
-                // 4. Tạo một thẻ <a> ẩn, gán URL và ép click để tải file
                 const a = document.createElement('a');
                 a.style.display = 'none';
                 a.href = url;
-                a.download = `BaoCao_KetCa_${id}.pdf`; // Tên file tải xuống
-                
+                a.download = `BaoCao_KetCa_${id}.pdf`; 
                 document.body.appendChild(a);
                 a.click();
-
-                // 5. Dọn dẹp URL ảo và thẻ <a> để giải phóng bộ nhớ
                 window.URL.revokeObjectURL(url);
                 a.remove();
 
             } catch (error) {
                 console.error("Lỗi khi tải file PDF:", error);
                 alert("Lỗi kết nối khi xuất PDF!");
+                sessionStorage.clear(); 
+                sessionStorage.removeItem('isAppStarted');
+                window.location.href = 'login.html';
+                return; // Nếu lỗi web thì ngắt luôn, không thực hiện clear session bên dưới
             }
         }
+        
+        // ==========================================
+        // DỌN DẸP SESSION VÀ ĐÁ VỀ TRANG LOGIN
+        // (Chạy được cho cả trường hợp JavaFX và Web)
+        // ==========================================
         sessionStorage.clear(); 
         sessionStorage.removeItem('isAppStarted');
         alert("Đã in bảng kê thành công!");
         window.location.href = 'login.html';    
     }
+
     async function downloadLatestPdf() {
         try {
             const token = sessionStorage.getItem('accessToken');
@@ -670,7 +673,7 @@
             finishedLogs.sort((a, b) => new Date(b.ketthuc) - new Date(a.ketthuc));
             const latestId = finishedLogs[0].id;
 
-            // Chuyển ID tìm được vào hàm downloadPdf đã sửa ở trên để nó xử lý kẹp Token
+            // Gọi hàm downloadPdf đã được bọc đủ tham số ở trên
             await downloadPdf(latestId); 
 
         } catch (error) {

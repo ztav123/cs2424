@@ -41,14 +41,14 @@ create table CALAM (
     batdau timestamp default systimestamp,
     ketthuc timestamp,
     tienmat_bandau number(15, 2) default 0,
-    tienmat_ketca number(15, 2) default 0, -- Số tiền mặt nhân viên thực đếm
-    tien_nganhang number(15, 2) default 0, -- Doanh thu từ CK/Momo (hệ thống tính)
-    tong_doanhthu number(15, 2) default 0, -- Tổng tiền hệ thống tính (Cash + Bank)
-    tongtien_thucte number(15, 2) default 0, -- Tổng thực tế có (Tiền mặt đếm + Bank)
+    tienmat_ketca number(15, 2) default 0, 
+    tien_nganhang number(15, 2) default 0, 
+    tien_mat number(15, 2) default 0, 
+    tong_doanhthu number(15, 2) default 0, 
+    tongtien_thucte number(15, 2) default 0, 
     ghichu varchar2(255),
     constraint fk_calam_nv foreign key (nhanvien_id) references NHANVIEN(id)
 );
-
 -- 5. BẢNG HÓA ĐƠN (Gộp thông tin thanh toán)
 create table HOADON (
     id varchar2(20) primary key,
@@ -74,8 +74,22 @@ create table CTHD (
     constraint fk_cthd_hd foreign key (hoadon_id) references HOADON(id),
     constraint fk_cthd_sp foreign key (sanpham_id) references SANPHAM(id)
 );
+-- INDEX TỐI ƯU (Chỉ giữ lại những cái thực sự cần thiết)
+create index idx_sp_ten on SANPHAM(ten);
+create index idx_hd_ngay on HOADON(ngaylap);
+create index idx_cl_nv on CALAM(nhanvien_id);
 
--- TRIGGER: Tự động gán tienmat_bandau khi tạo ca làm mới
+-- 1. Thêm cột Khóa mềm (Soft Delete) cho Nhân Viên và Sản Phẩm
+ALTER TABLE NHANVIEN ADD is_deleted NUMBER(1) DEFAULT 0;
+ALTER TABLE SANPHAM ADD is_deleted NUMBER(1) DEFAULT 0;
+
+-- 2. Thêm cột ma_nhanvien cho bảng NHANVIEN
+ALTER TABLE NHANVIEN ADD ma_nhanvien VARCHAR2(10) UNIQUE;
+
+-- 3. CHỐT CHẶN TỐI THƯỢNG: Không bao giờ cho phép kho bị âm
+ALTER TABLE SANPHAM ADD CONSTRAINT chk_tonkho_positive CHECK (tonkho >= 0);
+
+-- TRIGGER 0: Tự động gán tienmat_bandau khi tạo ca làm mới
 CREATE OR REPLACE TRIGGER trg_calam_tienmat_bandau
 FOR INSERT ON CALAM
 COMPOUND TRIGGER
@@ -116,45 +130,65 @@ COMPOUND TRIGGER
 END trg_calam_tienmat_bandau;
 
 
--- INDEX TỐI ƯU (Chỉ giữ lại những cái thực sự cần thiết)
-create index idx_sp_ten on SANPHAM(ten);
-create index idx_hd_ngay on HOADON(ngaylap);
-create index idx_cl_nv on CALAM(nhanvien_id);
-
--- 1. Thêm cột Khóa mềm (Soft Delete) cho Nhân Viên và Sản Phẩm
-ALTER TABLE NHANVIEN ADD is_deleted NUMBER(1) DEFAULT 0;
-ALTER TABLE SANPHAM ADD is_deleted NUMBER(1) DEFAULT 0;
-
--- 2. Thêm cột ma_nhanvien cho bảng NHANVIEN
-ALTER TABLE NHANVIEN ADD ma_nhanvien VARCHAR2(10) UNIQUE;
-
--- 3. CHỐT CHẶN TỐI THƯỢNG: Không bao giờ cho phép kho bị âm
-ALTER TABLE SANPHAM ADD CONSTRAINT chk_tonkho_positive CHECK (tonkho >= 0);
-
 -- TRIGGER 1: Tích điểm trực tiếp khi tạo mới Hóa Đơn Tiền Mặt (Trạng thái HOAN_THANH ngay lập tức)
 CREATE OR REPLACE TRIGGER TRG_HOADON_INSERT
 AFTER INSERT ON HOADON
 FOR EACH ROW
+DECLARE
+    v_calam_id NUMBER;
 BEGIN
-    IF :NEW.trangthai = 'HOAN_THANH' AND :NEW.khach_sdt IS NOT NULL THEN
-        UPDATE KHACHHANG
-        SET diemtichluy = diemtichluy + FLOOR(:NEW.tongtien / 10000)
-        WHERE sdt = :NEW.khach_sdt;
+    IF :NEW.trangthai = 'HOAN_THANH' THEN
+        -- 1. Tích điểm cho khách hàng
+        IF :NEW.khach_sdt IS NOT NULL THEN
+            UPDATE KHACHHANG 
+            SET diemtichluy = diemtichluy + FLOOR(:NEW.tongtien / 10000) 
+            WHERE sdt = :NEW.khach_sdt;
+        END IF;
+
+        -- 2. TÌM ID CA LÀM MỚI NHẤT ĐANG MỞ CỦA NHÂN VIÊN
+        BEGIN
+            SELECT id INTO v_calam_id
+            FROM CALAM
+            WHERE nhanvien_id = :NEW.nhanvien_id 
+              AND ketthuc IS NULL
+            ORDER BY id DESC
+            FETCH FIRST 1 ROWS ONLY; 
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                v_calam_id := NULL; 
+        END;
+
+        -- 3. TIẾN HÀNH CẬP NHẬT TIỀN VÀO ĐÚNG ID CA LÀM
+        IF v_calam_id IS NOT NULL THEN
+            IF UPPER(:NEW.phuongthuc_tt) LIKE '%TIỀN MẶT%' OR UPPER(:NEW.phuongthuc_tt) LIKE '%TIEN MAT%' THEN
+                -- SỬA Ở ĐÂY: Cộng thêm vào cột tien_mat
+                UPDATE CALAM 
+                SET tong_doanhthu = NVL(tong_doanhthu, 0) + :NEW.tongtien,
+                    tien_mat = NVL(tien_mat, 0) + :NEW.tongtien
+                WHERE id = v_calam_id;
+            ELSE
+                UPDATE CALAM 
+                SET tien_nganhang = NVL(tien_nganhang, 0) + :NEW.tongtien, 
+                    tong_doanhthu = NVL(tong_doanhthu, 0) + :NEW.tongtien 
+                WHERE id = v_calam_id;
+            END IF;
+        END IF;
+        
     END IF;
 END;
 /
 
 -- TRIGGER 2: Trừ kho trực tiếp khi chi tiết (CTHD) được chèn vào một hóa đơn đã HOAN_THANH
-CREATE OR REPLACE TRIGGER TRG_CTHD_TRU_KHO
+create or replace TRIGGER TRG_CTHD_INSERT
 AFTER INSERT ON CTHD
 FOR EACH ROW
 DECLARE
     v_trangthai VARCHAR2(20);
 BEGIN
-    -- Lấy trạng thái của hóa đơn mẹ
+    -- Lấy trạng thái của hóa đơn chứa sản phẩm này
     SELECT trangthai INTO v_trangthai FROM HOADON WHERE id = :NEW.hoadon_id;
-    
-    -- Nếu Hóa đơn mẹ đã hoàn thành (VD: Tiền mặt), thì trừ kho luôn
+
+    -- Nếu Hóa đơn Tiền mặt -> Trạng thái là HOAN_THANH -> Trừ kho luôn
     IF v_trangthai = 'HOAN_THANH' THEN
         UPDATE SANPHAM SET tonkho = tonkho - :NEW.soluong WHERE id = :NEW.sanpham_id;
     END IF;
@@ -165,35 +199,103 @@ END;
 CREATE OR REPLACE TRIGGER TRG_HOADON_UPDATE
 AFTER UPDATE OF trangthai ON HOADON
 FOR EACH ROW
+DECLARE
+    v_calam_id NUMBER;
 BEGIN
-    -- TRƯỜNG HỢP A: Đơn VNPay thanh toán thành công
+    
+    -- =========================================================================
+    -- LUỒNG 1: CHUYỂN TỪ TRẠNG THÁI KHÁC SANG 'HOAN_THANH' (Duyệt đơn thành công)
+    -- =========================================================================
     IF :OLD.trangthai <> 'HOAN_THANH' AND :NEW.trangthai = 'HOAN_THANH' THEN
-        -- Trừ kho cho toàn bộ sản phẩm trong đơn
+
+        -- 1. Trừ kho
         FOR r IN (SELECT sanpham_id, soluong FROM CTHD WHERE hoadon_id = :NEW.id) LOOP
             UPDATE SANPHAM SET tonkho = tonkho - r.soluong WHERE id = r.sanpham_id;
         END LOOP;
 
-        -- Tích điểm cho khách
+        -- 2. Tích điểm
         IF :NEW.khach_sdt IS NOT NULL THEN
-            UPDATE KHACHHANG
-            SET diemtichluy = diemtichluy + FLOOR(:NEW.tongtien / 10000)
+            UPDATE KHACHHANG 
+            SET diemtichluy = diemtichluy + FLOOR(:NEW.tongtien / 10000) 
             WHERE sdt = :NEW.khach_sdt;
         END IF;
+
+        -- 3. Tìm ca làm việc
+        BEGIN
+            SELECT id INTO v_calam_id
+            FROM CALAM
+            WHERE nhanvien_id = :NEW.nhanvien_id 
+              AND ketthuc IS NULL
+            ORDER BY id DESC
+            FETCH FIRST 1 ROWS ONLY;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                v_calam_id := NULL;
+        END;
+        
+        -- 4. Cộng doanh thu vào ca làm việc
+        IF v_calam_id IS NOT NULL THEN
+            IF UPPER(:NEW.phuongthuc_tt) LIKE '%TIỀN MẶT%' OR UPPER(:NEW.phuongthuc_tt) LIKE '%TIEN MAT%' THEN
+                -- SỬA Ở ĐÂY: Cộng thêm vào tien_mat
+                UPDATE CALAM 
+                SET tong_doanhthu = NVL(tong_doanhthu, 0) + :NEW.tongtien,
+                    tien_mat = NVL(tien_mat, 0) + :NEW.tongtien
+                WHERE id = v_calam_id;
+            ELSE
+                UPDATE CALAM 
+                SET tien_nganhang = NVL(tien_nganhang, 0) + :NEW.tongtien, 
+                    tong_doanhthu = NVL(tong_doanhthu, 0) + :NEW.tongtien 
+                WHERE id = v_calam_id;
+            END IF;
+        END IF;
+
     END IF;
 
-    -- TRƯỜNG HỢP B: Đơn hàng bị HỦY (Quản lý bấm hủy hoặc Khách không nhận)
-    IF :OLD.trangthai = 'HOAN_THANH' AND :NEW.trangthai = 'DA_HUY' THEN
-        -- Hoàn lại kho (Cộng trả lại hàng)
+    -- =========================================================================
+    -- LUỒNG 2: CHUYỂN TỪ 'HOAN_THANH' SANG TRẠNG THÁI KHÁC (Hủy/Thất bại đơn)
+    -- =========================================================================
+    IF :OLD.trangthai = 'HOAN_THANH' AND :NEW.trangthai <> 'HOAN_THANH' THEN
+        
+        -- 1. Hoàn trả số lượng tồn kho
         FOR r IN (SELECT sanpham_id, soluong FROM CTHD WHERE hoadon_id = :NEW.id) LOOP
             UPDATE SANPHAM SET tonkho = tonkho + r.soluong WHERE id = r.sanpham_id;
         END LOOP;
-
-        -- Trừ lại điểm tích lũy của khách
-        IF :NEW.khach_sdt IS NOT NULL THEN
-            UPDATE KHACHHANG
-            SET diemtichluy = diemtichluy - FLOOR(:NEW.tongtien / 10000)
-            WHERE sdt = :NEW.khach_sdt;
+        
+        -- 2. Trừ điểm tích lũy
+        IF :OLD.khach_sdt IS NOT NULL THEN
+            UPDATE KHACHHANG 
+            SET diemtichluy = GREATEST(0, diemtichluy - FLOOR(:OLD.tongtien / 10000)) 
+            WHERE sdt = :OLD.khach_sdt; 
         END IF;
+
+        -- 3. Tìm ca làm việc
+        BEGIN
+            SELECT id INTO v_calam_id
+            FROM CALAM
+            WHERE nhanvien_id = :NEW.nhanvien_id 
+              AND ketthuc IS NULL
+            ORDER BY id DESC
+            FETCH FIRST 1 ROWS ONLY;
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                v_calam_id := NULL;
+        END;
+
+        IF v_calam_id IS NOT NULL THEN
+            IF UPPER(:OLD.phuongthuc_tt) LIKE '%TIỀN MẶT%' OR UPPER(:OLD.phuongthuc_tt) LIKE '%TIEN MAT%' THEN
+                -- SỬA Ở ĐÂY: Rút tiền khỏi cả tong_doanhthu và tien_mat
+                UPDATE CALAM 
+                SET tong_doanhthu = GREATEST(0, NVL(tong_doanhthu, 0) - :OLD.tongtien),
+                    tien_mat = GREATEST(0, NVL(tien_mat, 0) - :OLD.tongtien)
+                WHERE id = v_calam_id;
+            ELSE
+                UPDATE CALAM 
+                SET tien_nganhang = GREATEST(0, NVL(tien_nganhang, 0) - :OLD.tongtien), 
+                    tong_doanhthu = GREATEST(0, NVL(tong_doanhthu, 0) - :OLD.tongtien) 
+                WHERE id = v_calam_id;
+            END IF;
+        END IF;
+        
     END IF;
 END;
 /
@@ -207,62 +309,11 @@ DECLARE
 BEGIN
     IF :NEW.sdt IS NOT NULL THEN
         -- Lấy 4 ký tự cuối cùng
-        v_4so := SUBSTR(:NEW.sdt, -4);
+        v_4so := SUBSTR(:NEW.sdt, -5);
         -- Độn thêm số '0' ở trước nếu sđt quá ngắn (phòng hờ)
-        v_4so := LPAD(v_4so, 4, '0'); 
+        v_4so := LPAD(v_4so, 6, '0'); 
         :NEW.ma_nhanvien := '2' || v_4so;
-    ELSE
-        -- Nếu tạo nhân viên không thèm nhập SĐT, bốc đại 4 số ngẫu nhiên
-        :NEW.ma_nhanvien := '2' || LPAD(ROUND(DBMS_RANDOM.VALUE(0, 9999)), 4, '0');
+        
     END IF;
 END;
 /
-
--- STORED PROCEDURE TÍNH TIỀN KẾT CA
-CREATE OR REPLACE PROCEDURE SP_CHOT_CA_LAM (
-    p_ca_lam_id IN NUMBER
-)
-AS
-    v_nhanvien_id NUMBER;
-    v_batdau TIMESTAMP;
-    v_ketthuc TIMESTAMP;
-    v_tien_mat NUMBER(15, 2) := 0;
-    v_tien_nh NUMBER(15, 2) := 0;
-BEGIN
-    -- 1. Lấy thông tin thời gian của Ca trực
-    SELECT nhanvien_id, batdau, ketthuc
-    INTO v_nhanvien_id, v_batdau, v_ketthuc
-    FROM CALAM
-    WHERE id = p_ca_lam_id;
-
-    -- Nếu ca làm chưa được chốt giờ kết thúc, tạm lấy giờ hiện tại
-    IF v_ketthuc IS NULL THEN
-        v_ketthuc := SYSTIMESTAMP;
-    END IF;
-
-    -- 2. Gom tổng tiền của các hóa đơn HOÀN THÀNH trong khung giờ đó
-    SELECT
-        NVL(SUM(CASE WHEN phuongthuc_tt = 'Tiền mặt' THEN tongtien ELSE 0 END), 0),
-        NVL(SUM(CASE WHEN phuongthuc_tt != 'Tiền mặt' THEN tongtien ELSE 0 END), 0)
-    INTO v_tien_mat, v_tien_nh
-    FROM HOADON
-    WHERE nhanvien_id = v_nhanvien_id
-      AND ngaylap >= v_batdau
-      AND ngaylap <= v_ketthuc
-      AND trangthai = 'HOAN_THANH';
-
-    -- 3. Cập nhật thẳng vào bảng CALAM
-    UPDATE CALAM
-    SET
-        tien_nganhang = v_tien_nh,
-        tong_doanhthu = v_tien_mat + v_tien_nh
-    WHERE id = p_ca_lam_id;
-
-    COMMIT;
-EXCEPTION
-    WHEN OTHERS THEN
-        ROLLBACK;
-        RAISE;
-END SP_CHOT_CA_LAM;
-/
-

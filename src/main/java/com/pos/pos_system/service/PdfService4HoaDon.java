@@ -6,7 +6,6 @@ import com.pos.pos_system.entity.CTHD;
 import com.pos.pos_system.entity.HoaDon;
 import com.pos.pos_system.entity.SanPham;
 import com.pos.pos_system.repository.CTHDRepository;
-import com.pos.pos_system.repository.SanPhamRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,9 +18,6 @@ import java.util.List;
 public class PdfService4HoaDon {
     @Autowired
     private CTHDRepository cthdRepository;
-
-    @Autowired
-    private SanPhamRepository sanPhamRepository;
 
     public void exportReceipt(HttpServletResponse response, HoaDon hd) throws IOException {
         Rectangle pageSize = new Rectangle(226, 800); 
@@ -95,14 +91,14 @@ public class PdfService4HoaDon {
 
         Double tongTien = 0.0;
         
-        List<CTHD> chiTietList = cthdRepository.findByHoadonid(hd.getId());
+        List<CTHD> chiTietList = cthdRepository.findByHoadon_Id(hd.getId());
 
         if (chiTietList != null && !chiTietList.isEmpty()) {
             for (CTHD ct : chiTietList) {
                 // Lấy tên sản phẩm thông qua sanphamid
                 String tenSp = "SP Không rõ";
-                if (ct.getSanphamid() != null) {
-                    SanPham sp = sanPhamRepository.findById(ct.getSanphamid()).orElse(null);
+                if (ct.getSanPham() != null) {
+                    SanPham sp = ct.getSanPham();
                     if (sp != null) {
                         tenSp = sp.getTen();
                     }
@@ -111,14 +107,14 @@ public class PdfService4HoaDon {
                 PdfPCell cell1 = new PdfPCell(new Phrase(tenSp, smallFont)); cell1.setBorder(Rectangle.NO_BORDER); table.addCell(cell1);
                 
                 // Sử dụng getSoluong() thay vì getSoLuong() theo Entity CTHD
-                PdfPCell cell2 = new PdfPCell(new Phrase(String.valueOf(ct.getSoluong()), smallFont)); 
+                PdfPCell cell2 = new PdfPCell(new Phrase(String.valueOf(ct.getSoLuong()), smallFont)); 
                 cell2.setBorder(Rectangle.NO_BORDER); cell2.setHorizontalAlignment(Element.ALIGN_CENTER); table.addCell(cell2);
                 
                 // Sử dụng getDongia() thay vì getDonGia() theo Entity CTHD
-                PdfPCell cell3 = new PdfPCell(new Phrase(String.format("%,.0f", (double) ct.getDongia()), smallFont)); 
+                PdfPCell cell3 = new PdfPCell(new Phrase(String.format("%,.0f", (double) ct.getDonGia()), smallFont)); 
                 cell3.setBorder(Rectangle.NO_BORDER); cell3.setHorizontalAlignment(Element.ALIGN_RIGHT); table.addCell(cell3);
                 
-                Double lineTotal = (double) (ct.getSoluong() * ct.getDongia());
+                Double lineTotal = (double) (ct.getSoLuong() * ct.getDonGia());
                 tongTien += lineTotal;
                 
                 PdfPCell cell4 = new PdfPCell(new Phrase(String.format("%,.0f", lineTotal), smallFont)); 
@@ -146,9 +142,13 @@ public class PdfService4HoaDon {
         footer1.setAlignment(Element.ALIGN_CENTER);
         document.add(footer1);
         
-        Paragraph footer2 = new Paragraph("Rất mong nhận được sự góp ý về phương thức phục vụ, giá cả, chất lượng của chúng tôi", new Font(unicodeBaseFont, 7, Font.ITALIC));
+        Paragraph footer2 = new Paragraph("Easy come, easy go!", new Font(unicodeBaseFont, 7, Font.ITALIC));
         footer2.setAlignment(Element.ALIGN_CENTER);
         document.add(footer2);
+        
+        Paragraph footer3 = new Paragraph("Miễn đổi trả sau khi mua!", new Font(unicodeBaseFont, 7, Font.ITALIC));
+        footer3.setAlignment(Element.ALIGN_CENTER);
+        document.add(footer3);
 
         document.close();
     }

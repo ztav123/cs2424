@@ -5,6 +5,6 @@ import lombok.Data;
 
 @Data
 public class CTHDid implements Serializable {
-    private String hoadonid;
-    private Integer sanphamid;
+    private String hoadon;  
+    private Integer sanPham; 
 }

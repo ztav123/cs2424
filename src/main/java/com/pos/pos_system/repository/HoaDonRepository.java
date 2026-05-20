@@ -29,4 +29,7 @@ public interface HoaDonRepository extends JpaRepository<HoaDon, String> {
                    "WHERE hd.ngaylap BETWEEN :from AND :to AND (:nvId IS NULL OR hd.nhanvien_id = :nvId) " +
                    "GROUP BY sp.ten ORDER BY SUM(ct.soluong) DESC FETCH FIRST 1 ROWS ONLY", nativeQuery = true)
     String findSpBanChayNhat(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, @Param("nvId") Integer nvId);
+    // ... code cũ
+    // Tìm các hóa đơn có trạng thái X và được lập trước một mốc thời gian Y
+    List<HoaDon> findByTrangthaiAndNgaylapBefore(String trangthai, java.time.LocalDateTime time);
 }

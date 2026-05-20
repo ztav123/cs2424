@@ -26,40 +26,47 @@ public class KetCaController {
     @Autowired private PdfService4KetCa PdfService4KetCa;
 
     @PostMapping("/save-log")
+    // Sử dụng thẳng DTO PayLoadTienMat ở đây
     public ResponseEntity<?> saveLog(@RequestBody PayLoadTienMat payload) {
         try {
             Integer nhanVienId = payload.getNhanVienId(); 
             Double cashCounted = payload.getTienmat();
+            Boolean quanly = payload.getQuanly();
 
-            // Tìm ca làm việc đang mở (chưa có giờ kết thúc) của nhân viên này để xử lý
-            CaLam shift = caLamRepo.findTopByNhanVienIdOrderByBatdauDesc(nhanVienId);
-            
-            // Dự phòng trường hợp không tìm thấy theo ID cụ thể, quét ca gần nhất hệ thống
-            if (shift == null) {
-                shift = caLamRepo.findTopByOrderByBatdauDesc();
-            }
-
-            if (shift == null) {
-                return ResponseEntity.badRequest().body("Lỗi: Không tìm thấy ca làm việc cần chốt!");
-            }
-
-            // XỬ LÝ THỜI GIAN: Nếu frontend có truyền mốc thời gian sang, ép kiểu về LocalDateTime
-            if (payload.getKetThucTime() != null && !payload.getKetThucTime().isEmpty()) {
-                java.time.ZonedDateTime zdt = java.time.ZonedDateTime.parse(payload.getKetThucTime());
-                shift.setKetthuc(zdt.toLocalDateTime());
+            if (quanly) {
+                // Logic tạo ca mới
+                NhanVien nv = nhanVienRepo.findById(nhanVienId).orElse(null);
+                if (nv == null) {
+                    return ResponseEntity.badRequest().body("Không tìm thấy nhân viên/quản lý!");
+                }
+                
+                CaLam newShift = new CaLam();
+                newShift.setNhanVien(nv);
+                // Tạo ca mới thì set thời gian BẮT ĐẦU nhé
+                newShift.setBatdau(LocalDateTime.now()); 
+                newShift.setKetthuc(LocalDateTime.now()); 
+                newShift.setTienmatKetca(cashCounted); 
+                
+                caLamRepo.save(newShift); // Lệnh này sẽ tạo ra log INSERT
+                return ResponseEntity.ok("Tạo ca mới thành công!");
             } else {
-                shift.setKetthuc(LocalDateTime.now());
-            }
+                // Logic cập nhật ca cũ
+                CaLam shift = caLamRepo.findTopByNhanVienIdOrderByBatdauDesc(nhanVienId);
+                if (shift == null) {
+                    return ResponseEntity.badRequest().body("Lỗi: Không tìm thấy ca làm gần nhất!");
+                }
 
-            shift.setTienmatKetca(cashCounted);
-            Double sysBank = shift.getTienNganhang() != null ? shift.getTienNganhang() : 0.0;
-            shift.setTongtienThucte(sysBank + cashCounted);
-            
-            caLamRepo.save(shift); // Thực thi lệnh UPDATE hoàn tất ca xuống Oracle
-            return ResponseEntity.ok("Cập nhật kết ca thành công!");
+                shift.setKetthuc(LocalDateTime.now()); // Set thời gian kết thúc
+                shift.setTienmatKetca(cashCounted);
+                Double sysBank = shift.getTienNganhang() != null ? shift.getTienNganhang() : 0.0;
+                shift.setTongtienThucte(sysBank + cashCounted);
+                
+                caLamRepo.save(shift); // Lệnh này sẽ tạo ra log UPDATE
+                return ResponseEntity.ok("Cập nhật kết ca thành công!");
+            }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.internalServerError().body("Lỗi hệ thống: " + e.getMessage());
+            return ResponseEntity.internalServerError().body("Lỗi Server: " + e.getMessage());
         }
     }
 

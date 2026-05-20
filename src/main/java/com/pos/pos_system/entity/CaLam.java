@@ -28,6 +28,9 @@ public class CaLam {
     @Column(name = "tien_nganhang")
     private Double tienNganhang;
 
+    @Column(name = "tien_mat")
+    private Double tienMat;
+
     @Column(name = "tong_doanhthu")
     private Double tongDoanhthu;
 

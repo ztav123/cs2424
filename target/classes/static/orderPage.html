@@ -524,14 +524,14 @@
         const urlParams = new URLSearchParams(window.location.search);
         const printBillId = urlParams.get('printBill');
         if (printBillId) {
-            // Tự động tải hóa đơn PDF
-            downloadReceipt(printBillId);
+            setTimeout(() => {
+                downloadReceipt(printBillId);
+            }, 1500); 
             
-            // Dọn dẹp Query String trên URL để F5 không in lại nhiều lần
             window.history.replaceState({}, document.title, window.location.pathname);
         }
 
-        loadProducts(); 
+        loadProducts();
         
         // Cập nhật thông tin nhân viên
         const nvId = sessionStorage.getItem('currentNhanVienId');
@@ -693,6 +693,7 @@
         const p = productDatabase[productId];
         if (!p) { alert("Không tìm thấy mã sản phẩm này!"); return; }
 
+        // Tìm xem trên giao diện HTML đã có dòng của sản phẩm này chưa
         let row = document.querySelector(`.table-row[data-id="${p.id}"]`);
         let currentQtyInCart = row ? parseInt(row.querySelector('.item-qty').textContent) : 0;
 
@@ -702,8 +703,10 @@
         }
 
         if (row) {
+            // CÓ RỒI: Chỉ tăng số lượng, tuyệt đối không tạo thẻ HTML mới
             updateRowQuantity(row, currentQtyInCart + 1);
         } else {
+            // CHƯA CÓ: Tạo dòng mới tinh
             invoiceList.insertAdjacentHTML('afterbegin', `
                 <div class="grid-row table-row" data-id="${p.id}" data-price="${p.price}" data-name="${p.name}">
                     <div>${p.name}</div> 
@@ -887,15 +890,32 @@
     }
 
     async function processPayment(method) {
-        const chiTietArr = [];
+        // --- GIẢI PHÁP CHỐNG LẶP SẢN PHẨM TRÊN BỘ NHỚ ĐỆM JPA ---
+        const gopSanPhamMap = new Map();
+
         document.querySelectorAll('.table-row').forEach(row => {
-            chiTietArr.push({
-                sanPhamId: parseInt(row.dataset.id),
-                donGia: parseInt(row.dataset.price),
-                soLuong: parseInt(row.querySelector('.item-qty').textContent)
-            });
+            const id = parseInt(row.dataset.id);
+            const gia = parseInt(row.dataset.price);
+            const sl = parseInt(row.querySelector('.item-qty').textContent);
+
+            if (gopSanPhamMap.has(id)) {
+                // Nếu đã tồn tại ID này trong danh sách gửi đi, tiến hành cộng dồn số lượng
+                const itemCu = gopSanPhamMap.get(id);
+                itemCu.soLuong += sl;
+            } else {
+                // Nếu chưa có, tạo mới phần tử
+                gopSanPhamMap.set(id, {
+                    sanPhamId: id,
+                    donGia: gia,
+                    soLuong: sl
+                });
+            }
         });
 
+        // Chuyển Map thành mảng Array sạch sẽ không bao giờ lo trùng lặp ID
+        const chiTietArr = Array.from(gopSanPhamMap.values());
+
+        // Đoạn đóng gói orderData bên dưới giữ nguyên của bạn...
         const orderData = {
             id: document.getElementById('bill-id-display').textContent, 
             nhanVienId: parseInt(sessionStorage.getItem('currentNhanVienId')),
@@ -926,12 +946,13 @@
                     // Nếu là thanh toán VNPay -> Trình duyệt tự động chuyển sang trang VNPay
                     window.location.href = data.url;
                 } else {
-                    // Nếu là Tiền mặt / Momo -> Thông báo và làm sạch giỏ hàng như bình thường
                     alert(data.message);
                     paymentModal.style.display = 'none';
                     clearCart();
                     loadProducts(); 
-                    downloadReceipt(orderData.id);
+                    setTimeout(() => {
+                        downloadReceipt(orderData.id);
+                    }, 1000);
                 }
             } else {
                 alert(data.error || "Lỗi thanh toán!");
@@ -942,25 +963,34 @@
     }
     async function downloadReceipt(invoiceId) {
         try {
-            const token = sessionStorage.getItem('accessToken');
-            const res = await fetch(`http://localhost:8080/api/checkout/export-pdf/${invoiceId}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (res.ok) {
-                const blob = await res.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = `HoaDon_${invoiceId}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                a.remove();
-            } else {
-                console.error("Lỗi xuất PDF hóa đơn");
+            const token = sessionStorage.getItem('accessToken') || ''; 
+            if (!token) {
+                alert("Phiên đăng nhập không hợp lệ!");
+                return;
             }
-        } catch (e) { console.error("Lỗi mạng khi xuất hóa đơn:", e); }
+            if (window.app) {
+                window.app.downloadPdf(`/api/checkout/export-pdf/${invoiceId}`, token, `HoaDon_${invoiceId}.pdf`);
+            } else {
+                // Logic chạy trên trình duyệt web giữ nguyên...
+                const res = await fetch(`http://localhost:8080/api/checkout/export-pdf/${invoiceId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `HoaDon_${invoiceId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                }
+            }
+        } catch (e) { 
+            console.error("Lỗi mạng khi xuất hóa đơn:", e); 
+        }
     }
 </script>
 </body>

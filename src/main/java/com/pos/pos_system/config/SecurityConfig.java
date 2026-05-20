@@ -46,20 +46,44 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable()) 
-            // THAY THẾ DÒNG .cors.disable() THÀNH DÒNG DƯỚI ĐÂY:
             .cors(cors -> cors.configurationSource(corsConfigurationSource())) 
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) 
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() 
+                
+                // =========================================================================
+                // 1. MỞ CỬA CHO GIAO DIỆN TĨNH (Thêm đoạn này để HOÀN TOÀN HẾT TRẮNG MÀN HÌNH)
+                // Cho phép JavaFX WebView tải file HTML, CSS, JS thoải mái mà không cần Token
+                // =========================================================================
+                .requestMatchers(
+                    "/*.html", 
+                    "/**/*.html", 
+                    "/**/*.css", 
+                    "/**/*.js", 
+                    "/img/**", 
+                    "/fonts/**", 
+                    "/favicon.ico"
+                ).permitAll()
+
+                // 2. CÁC API KHÔNG CẦN CHECK TOKEN (ĐĂNG NHẬP, VNPAY)
                 .requestMatchers("/api/auth/login", "/api/auth/exit").permitAll() 
-                .requestMatchers("/api/checkout/vnpay-return").permitAll()
+                .requestMatchers("/api/checkout/vnpay-return", "/api/checkout/vnpay-ipn").permitAll() 
+                .requestMatchers("/api/checkout/export-pdf/**", "/api/ketca/export-pdf/**").permitAll()
+                
+                // =========================================================================
+                // 3. GIỮ NGUYÊN TOÀN BỘ HỆ THỐNG PHÂN QUYỀN API CŨ CỦA BẠN (AN TOÀN TUYỆT ĐỐI)
+                // =========================================================================
                 .requestMatchers("/api/checkout/**").hasAnyAuthority("ADMIN", "NHANVIEN")
                 .requestMatchers("/api/calam/**").hasAnyAuthority("ADMIN", "NHANVIEN")
                 .requestMatchers("/api/store/**").hasAnyAuthority("ADMIN", "NHANVIEN")
                 .requestMatchers("/api/ketca/**").hasAnyAuthority("ADMIN", "NHANVIEN")
+                .requestMatchers("/api/hoadon/**").hasAnyAuthority("ADMIN", "NHANVIEN")
+                
+                // Tất cả các request API phát sinh khác bắt buộc phải có quyền mới được vào
                 .anyRequest().hasAnyAuthority("ADMIN", "NHANVIEN") 
             );
             
+        // Giữ nguyên bộ lọc Jwt cũ của bạn
         http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
