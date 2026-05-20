@@ -497,12 +497,19 @@
                 });
 
                 if (!saveRes.ok) {
-                    // Do Backend đã mở CORS lỗi, lệnh này sẽ đọc được chính xác thông báo lỗi từ Server gửi lên
                     const errorMsg = await saveRes.text();
                     document.getElementById("loginresult").innerHTML = `Lỗi hệ thống: ${errorMsg}`;
                     return;
                 }
-                downloadLatestPdf();
+
+                // ĐÃ SỬA: Bóc nhanVienId từ pendingShiftPayload ra để truyền đi
+                let targetNhanVienId = null;
+                if (pendingPayloadStr) {
+                    const fakeLog = JSON.parse(pendingPayloadStr);
+                    targetNhanVienId = fakeLog.nhanVienId; // Lấy đúng ID nhân viên đã chốt ca
+                }
+
+                await downloadLatestPdf(targetNhanVienId);
                 // Bước 4: Hoàn thành lưu trữ dữ liệu an toàn -> Giải phóng bộ nhớ và reset giao diện
                 
                 alert("Xác minh hoàn tất! Dữ liệu ca làm việc đã được chốt sổ an toàn xuống Database.");
@@ -657,8 +664,10 @@
         window.location.href = 'login.html';    
     }
 
-    async function downloadLatestPdf() {
+    async function downloadLatestPdf(nhanVienId) {
         try {
+            // Sử dụng token mới của người vừa đăng nhập để fetch danh sách, 
+            // hoặc fallback về token cũ nếu token mới chưa lưu
             const token = sessionStorage.getItem('accessToken');
             const response = await fetch('http://localhost:8080/api/ketca/logs-today', {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -667,18 +676,33 @@
             if (!response.ok) throw new Error('Không thể tải danh sách ca làm việc.');
             const logs = await response.json();
 
-            const finishedLogs = logs.filter(log => log.ketthuc !== null);
-            if (finishedLogs.length === 0) return alert('Chưa có ca làm nào được kết thúc!');
+            // ĐÃ SỬA: Lọc ca làm việc đã kết thúc VÀ phải thuộc về ĐÚNG nhân viên đã kết ca
+            const finishedLogs = logs.filter(log => {
+                const isFinished = log.ketthuc !== null;
+                
+                // Trích xuất ID nhân viên an toàn từ object nhanVien của bản ghi DB
+                const logNhanVienId = log.nhanVien ? log.nhanVien.id : null; 
+                
+                if (nhanVienId) {
+                    return isFinished && logNhanVienId === parseInt(nhanVienId);
+                }
+                return isFinished; // Fallback nếu không truyền nhanVienId thì lấy ca bất kỳ đã kết thúc
+            });
 
+            if (finishedLogs.length === 0) {
+                return alert('Chưa có ca làm nào của nhân viên này được kết thúc trên hệ thống hôm nay!');
+            }
+
+            // Sắp xếp thời gian kết thúc mới nhất lên đầu để lấy đúng ca vừa bấm
             finishedLogs.sort((a, b) => new Date(b.ketthuc) - new Date(a.ketthuc));
             const latestId = finishedLogs[0].id;
 
-            // Gọi hàm downloadPdf đã được bọc đủ tham số ở trên
+            // Gọi hàm downloadPdf xuất file trực tiếp qua JavaBridge/Browser
             await downloadPdf(latestId); 
 
         } catch (error) {
             console.error('Lỗi tự động tải PDF:', error);
-            alert('Lỗi hệ thống: ' + error.message);
+            alert('Lỗi hệ thống khi tải bảng kê: ' + error.message);
         }
     }
 </script>

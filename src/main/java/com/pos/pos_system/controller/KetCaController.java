@@ -34,7 +34,6 @@ public class KetCaController {
             Boolean quanly = payload.getQuanly();
 
             if (quanly) {
-                // Logic tạo ca mới
                 NhanVien nv = nhanVienRepo.findById(nhanVienId).orElse(null);
                 if (nv == null) {
                     return ResponseEntity.badRequest().body("Không tìm thấy nhân viên/quản lý!");
@@ -74,7 +73,7 @@ public class KetCaController {
     public List<CaLam> getLogsToday() {
         LocalDateTime start = LocalDate.now().atStartOfDay();
         LocalDateTime end = LocalDate.now().atTime(LocalTime.MAX);
-        return caLamRepo.findByBatdauBetweenOrderByIdAsc(start, end);
+        return caLamRepo.findByBatdauBetweenAndKetthucIsNotNullOrderByIdAsc(start, end);
     }
 
     @GetMapping("/export-pdf/{id}")
