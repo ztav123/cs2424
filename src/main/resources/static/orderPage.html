@@ -968,11 +968,13 @@
                 alert("Phiên đăng nhập không hợp lệ!");
                 return;
             }
+            
+            const fullUrl = `http://localhost:8080/api/checkout/export-pdf/${invoiceId}`;
+
             if (window.app) {
-                window.app.downloadPdf(`/api/checkout/export-pdf/${invoiceId}`, token, `HoaDon_${invoiceId}.pdf`);
+                window.app.downloadPdf(fullUrl, token, `HoaDon_${invoiceId}.pdf`);
             } else {
-                // Logic chạy trên trình duyệt web giữ nguyên...
-                const res = await fetch(`http://localhost:8080/api/checkout/export-pdf/${invoiceId}`, {
+                const res = await fetch(fullUrl, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {

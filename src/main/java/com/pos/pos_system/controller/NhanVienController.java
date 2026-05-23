@@ -5,6 +5,7 @@ import com.pos.pos_system.repository.NhanVienRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import org.springframework.security.crypto.password.PasswordEncoder; 
 
 @RestController
 @RequestMapping("/api/nhanvien")
@@ -13,6 +14,9 @@ public class NhanVienController {
 
     @Autowired
     private NhanVienRepository repo;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @GetMapping
     public List<NhanVien> getAll() {
@@ -23,7 +27,8 @@ public class NhanVienController {
     public NhanVien create(@RequestBody NhanVien nv) {
         // Mặc định nhân viên mới là Đang làm (1), MK mặc định là 123456 (Nên băm MK sau này)
         if (nv.getTrangthai() == null) nv.setTrangthai(1);
-        if (nv.getMkdangnhap() == null) nv.setMkdangnhap("123456"); 
+        if (nv.getMkdangnhap() == null) nv.setMkdangnhap(passwordEncoder.encode("123456"));
+        else nv.setMkdangnhap(passwordEncoder.encode(nv.getMkdangnhap()));
         return repo.save(nv);
     }
 

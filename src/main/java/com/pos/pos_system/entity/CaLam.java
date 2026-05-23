@@ -16,6 +16,9 @@ public class CaLam {
     @JoinColumn(name = "nhanvien_id")
     private NhanVien nhanVien;
 
+    @Column(name = "may_pos")
+    private Integer mayPos;
+
     private LocalDateTime batdau;
     private LocalDateTime ketthuc;
 

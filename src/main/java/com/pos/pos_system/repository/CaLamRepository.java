@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 public interface CaLamRepository extends JpaRepository<CaLam, Integer> {
     // Thêm 2 hàm này vào:
     List<CaLam> findByNhanVienIdAndKetthucIsNull(Integer nhanVienId);
-    List<CaLam> findByBatdauBetweenAndKetthucIsNotNullOrderByIdAsc(LocalDateTime start, LocalDateTime end);
+    List<CaLam> findByMayPosAndBatdauBetweenAndKetthucIsNotNullOrderByIdAsc(Integer mayPos, LocalDateTime start, LocalDateTime end);
     CaLam findTopByNhanVienIdOrderByBatdauDesc(Integer nhanVienId);
     CaLam findTopByOrderByBatdauDesc();
 }

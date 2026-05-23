@@ -271,14 +271,14 @@
     async function loadLogs() {
         try {
             const token = sessionStorage.getItem('accessToken'); 
-           if (!token) return;
+            if (!token) return;
 
-           const res = await fetch('http://localhost:8080/api/ketca/logs-today', {
-               method: 'GET',
-               headers: { 
-                   'Authorization': `Bearer ${token}` // Kẹp thẻ xác thực vào đây
-               }
-           });
+            // 1. FETCH THEO MÁY POS (Mặc định là 1 nếu chưa cấu hình nhiều máy)
+            const currentMayPos = sessionStorage.getItem('currentMayPos') || 1;
+            const res = await fetch(`http://localhost:8080/api/ketca/logs-today?mayPos=${currentMayPos}`, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
             if (res.ok) {
                 let dbData = await res.json();
@@ -287,73 +287,78 @@
                 
                 dbData.sort((a, b) => a.id - b.id);
 
-                // --- 4.1. TIÊM BẢN NHÁP ẢO NẾU CÓ PAYLOAD TRONG SESSION ---
+                // 2. TÁCH BẠCH CA ĐANG MỞ VÀ CA ĐÃ ĐÓNG
+                const activeShift = dbData.find(l => l.ketthuc === null); // Ca hiện tại đang làm
+                const finishedLogs = dbData.filter(l => l.ketthuc !== null); // Các ca đã chốt trong quá khứ
+
+                // 3. TÍNH TIỀN HỆ THỐNG (CẦN NỘP) CHO CA HIỆN TẠI
+                if (activeShift) {
+                    const tienmatBandau = activeShift.tienmatBandau || 0;
+                    // Lấy trực tiếp cột tienMat (nếu bạn đã map trong Java), hoặc tính từ tổng trừ ngân hàng
+                    const tienMatHethong = activeShift.tienMat !== undefined ? activeShift.tienMat : ((activeShift.tongDoanhthu || 0) - (activeShift.tienNganhang || 0));
+                    const canNop = tienmatBandau + tienMatHethong;
+                    document.getElementById('expected-total').innerText = formatmoney(canNop) + " đ";
+                }
+
+                // 4. TIÊM BẢN NHÁP ẢO (Vào mảng render)
                 const pendingPayloadStr = sessionStorage.getItem('pendingShiftPayload');
-                if (pendingPayloadStr) {
+                if (pendingPayloadStr && activeShift) {
                     const fakeLog = JSON.parse(pendingPayloadStr);
-                    dbData.push({
+                    finishedLogs.push({
                         id: 'BẢN NHÁP', 
-                        batdau: new Date().toISOString(),
+                        batdau: activeShift.batdau,
                         nhanVien: { hoten: sessionStorage.getItem('currentNhanVienName') || sessionStorage.getItem('currentQuanLyName') || "N/A" },
-                        tienmatKetca: fakeLog.tienmat,
+                        tienmatBandau: activeShift.tienmatBandau,
+                        tongDoanhthu: activeShift.tongDoanhthu,
+                        tienNganhang: activeShift.tienNganhang,
+                        tienMat: activeShift.tienMat,
+                        tienmatKetca: fakeLog.tienmat, // Tiền thực đếm ở Frontend
                         isFake: true 
                     });
                 }
 
-                // --- 4.2. XÁC ĐỊNH MỤC TIÊU CẦN NỘP CỦA CA HIỆN TẠI ---
-                const realLogs = dbData.filter(l => !l.isFake);
-                const activeShift = realLogs.length > 0 ? realLogs[realLogs.length - 1] : null;
-                
-                if (activeShift) {
-                    const tienmatBandau = activeShift.tienmatBandau || 0;
-                    const heThong = activeShift.tongDoanhthu || 0;
-                    const tienNganhang = activeShift.tienNganhang || 0;
-                    const canNop = heThong - tienNganhang + tienmatBandau;
-                    document.getElementById('expected-total').innerText = formatmoney(canNop) + " đ";
-                }
-
-                // --- 4.3. ĐỔ DỮ LIỆU RA GIAO DIỆN ---
-                dbData.forEach((log, index) => {
+                // 5. ĐỔ DỮ LIỆU RA GIAO DIỆN (Chỉ render mảng finishedLogs)
+                finishedLogs.forEach((log, index) => {
                     const dateObj = new Date(log.batdau);
                     const dateStr = dateObj.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
                     
-                    const thucTe = parseInt(sessionStorage.getItem('grand-total')) || 0;
+                    // SỬA LỖI TÍNH TIỀN CHÍ MẠNG Ở ĐÂY:
+                    // - Tiền thực tế: Nếu là bản nháp thì lấy từ session, nếu là ca cũ thì lấy từ DB (tienmatKetca)
+                    const thucTe = log.isFake ? (parseInt(sessionStorage.getItem('grand-total')) || 0) : (parseInt(log.tienmatKetca) || 0);
+                    
                     const tienmatBandau = parseInt(log.tienmatBandau) || 0;
                     const heThong = parseInt(log.tongDoanhthu) || 0;
                     const tienNganhang = parseInt(log.tienNganhang) || 0;
-                    const canNop = heThong - tienNganhang + tienmatBandau;
+                    
+                    // Tính tiền mặt thu được trong ca (Cột tien_mat)
+                    const tienMatThuTrongCa = log.tienMat !== undefined ? parseInt(log.tienMat) : (heThong - tienNganhang);
+                    const canNop = tienmatBandau + tienMatThuTrongCa;
+                    
                     const chenhLech = thucTe - canNop;
                     const deviationStyle = chenhLech < 0 ? "color:red; font-weight:bold;" : "color:#1a9e2a; font-weight:bold;";
-
-                    if (log.isFake && activeShift) {
-                        tienmatBandau = activeShift.tienmatBandau || 0;
-                        heThong = activeShift.tongDoanhthu || 0;
-                        tienNganhang = activeShift.tienNganhang || 0;
-                    }
 
                     const item = document.createElement("div");
                     item.className = "log-item";
                     
-                    const actionBtn = log.isFake 
-                        ? `<span style="color:#d9534f; font-weight:bold; font-size:12px;">(Chờ xác minh...)</span>`
-                        : `<button onclick="downloadPdf('${log.id}')" style="background:#0b5aa6; color:white; border:none; border-radius:4px; padding:5px 12px; cursor:pointer; font-weight:bold; font-size:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Xuất PDF</button>`;
-
                     item.innerHTML = `
                         <div class="log-index">${index + 1}</div>
                         <div class="log-content">
                            <div class="log-header" style="display:flex; justify-content:space-between; align-items:center;">
                                <span>${dateStr}</span>
-                               <button onclick="downloadPdf('${log.id}')" style="background:#0b5aa6; color:white; border:none; border-radius:4px; padding:5px 12px; cursor:pointer; font-weight:bold; font-size:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Xuất PDF</button>
+                               ${log.isFake 
+                                 ? `<span style="color:#d9534f; font-weight:bold; font-size:12px;">(Chờ xác minh...)</span>` 
+                                 : `<button onclick="downloadPdf('${log.id}')" style="background:#0b5aa6; color:white; border:none; border-radius:4px; padding:5px 12px; cursor:pointer; font-weight:bold; font-size:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Xuất PDF</button>`
+                               }
                            </div>
                            <div class="log-name">${log.nhanVien.hoten}</div>
                            <div class="log-detail">
-                              
                               <span style="color:#0b5aa6">Doanh thu hệ thống: ${formatmoney(heThong)} VNĐ</span>
                               <span style="color:#0b5aa6">- Ngân hàng: ${formatmoney(tienNganhang)} VNĐ</span>
-                              <span style="color:#0b5aa6">- Tiền mặt: ${formatmoney(canNop)} VNĐ</span>
-                              <span style="color:#1a9e2a">Thực tế tiền mặt đếm được: ${formatmoney(thucTe)} VNĐ</span>
+                              <span style="color:#0b5aa6">- Tiền mặt trong ca: ${formatmoney(tienMatThuTrongCa)} VNĐ</span>
+                              <span style="color:#0b5aa6">+ Đầu ca có sẵn: ${formatmoney(tienmatBandau)} VNĐ</span>
+                              <span style="color:#e67e22; font-weight:bold; margin-top:5px;">=> CẦN NỘP VỀ: ${formatmoney(canNop)} VNĐ</span>
+                              <span style="color:#1a9e2a; margin-top:5px;">Thực tế tiền mặt đếm được: ${formatmoney(thucTe)} VNĐ</span>
                               <span style="${deviationStyle}">Chênh lệch: ${formatmoney(chenhLech)} VNĐ</span>
-                              
                            </div>
                         </div>
                     `;

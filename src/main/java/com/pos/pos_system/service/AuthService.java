@@ -31,7 +31,7 @@ public class AuthService {
     private JwtTokenProvider tokenProvider;
 
     @Transactional
-    public Map<String, Object> loginAndManageShift(Integer newId, String password, Integer oldId, boolean createShift) {
+    public Map<String, Object> loginAndManageShift(Integer newId, String password, Integer oldId, boolean createShift, Integer mayPos) {
         NhanVien nv = nhanVienRepo.findById(newId).orElse(null);
         System.out.println("=== DEBUG ĐĂNG NHẬP ===");
         System.out.println("1. ID từ Frontend gửi lên: " + newId);
@@ -107,11 +107,12 @@ public class AuthService {
             if (lastShift != null && lastShift.getTienmatKetca() != null) {
                 beginCash = lastShift.getTienmatKetca(); // Chuyền tiền mặt qua ca mới
             }
-
+            
             CaLam newShift = new CaLam();
             newShift.setNhanVien(nv);
             newShift.setBatdau(LocalDateTime.now());
             newShift.setTienmatBandau(beginCash); // Gán tiền mặt ban đầu
+            newShift.setMayPos(mayPos); // Gán số máy POS
             caLamRepo.save(newShift);
         }
         return response;

@@ -9,7 +9,11 @@ import java.time.LocalDate;
 @Data
 public class KhachHang {
     @Id
-    private String sdt; 
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private String id; 
+
+    @Column(name = "sdt")
+    private String sdt;
 
     @Column(name = "hoten") // Đổi ten -> hoten
     private String hoten;

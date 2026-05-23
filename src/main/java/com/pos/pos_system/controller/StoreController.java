@@ -30,10 +30,10 @@ public class StoreController {
     // Tạo khách hàng mới
     @PostMapping("/khachhang")
     public ResponseEntity<?> createKhachHang(@RequestBody KhachHang khachHang) {
-        // Cập nhật tên hàm cho khớp với Entity mới
+        khachHang.setHoten(khachHang.getHoten());
+        khachHang.setSdt(khachHang.getSdt());
         khachHang.setNgaytao(java.time.LocalDate.now());
         khachHang.setDiemtichluy(0);
-        
         KhachHang saved = khachHangRepo.save(khachHang);
         return ResponseEntity.ok(saved);
     }

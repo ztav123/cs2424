@@ -12,6 +12,9 @@ public class PayLoadTienMat {
     
     private Boolean quanly;
     
-    // THÊM TRƯỜNG NÀY: Để nhận chuỗi thời gian đóng ca từ Frontend
     private String ketThucTime; 
+    @JsonProperty("mayPos")
+    private Integer mayPos;
+    public Integer getMayPos() { return mayPos; }
+    public void setMayPos(Integer mayPos) { this.mayPos = mayPos; }
 }

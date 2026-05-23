@@ -109,11 +109,7 @@ public class CheckoutController {
     @Autowired private com.pos.pos_system.repository.CTHDRepository cthdRepo; // Thêm dòng này
 
     @GetMapping(value = "/export-pdf/{id}", produces = "application/pdf")
-    public void exportReceiptPDF(HttpServletResponse response, @PathVariable String id) throws IOException {
-        
-        // Đảm bảo xóa bộ đệm cũ để tránh xung đột dữ liệu dòng
-        response.reset(); 
-        
+    public void exportReceiptPDF(HttpServletResponse response, @PathVariable String id) throws IOException {        
         response.setContentType("application/pdf");
         response.setHeader("Content-Disposition", "attachment; filename=HoaDon_" + id + ".pdf");
 
@@ -124,9 +120,6 @@ public class CheckoutController {
             
             // Tiến hành ghi file xuất trực tiếp ra luồng Output của Response
             pdfService4HoaDon.exportReceipt(response, hd);
-            
-            // Ép luồng xả hết dữ liệu xuống mạng, tránh kẹt dữ liệu gây file trống
-            response.getOutputStream().flush(); 
         }
     }
 

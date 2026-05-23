@@ -21,10 +21,11 @@ public class AuthController {
             @RequestParam Integer id, 
             @RequestParam String password,
             @RequestParam(required = false) Integer oldId,
-            @RequestParam(required = false, defaultValue = "true") boolean createShift) { 
+            @RequestParam(required = false, defaultValue = "true") boolean createShift,
+            @RequestParam(required = false, defaultValue = "1") Integer mayPos) { 
         
         // Nhận về 1 Map chứa thông tin Role, ID và Họ tên[cite: 9]
-        Map<String, Object> result = authService.loginAndManageShift(id, password, oldId, createShift);
+        Map<String, Object> result = authService.loginAndManageShift(id, password, oldId, createShift, mayPos); // Giả sử mayPos là 1
         
         if (result != null) {
             // Trả về HTTP Status 200 (OK) và data Map dạng JSON[cite: 9]

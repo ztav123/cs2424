@@ -520,7 +520,51 @@
             // ====================================================================
             // LUỒNG 2: ĐĂNG NHẬP HỆ THỐNG BÌNH THƯỜNG (Mở ca làm việc đầu ngày)
             // ====================================================================
-            let url = `http://localhost:8080/api/auth/login?id=${getid}&password=${encodeURIComponent(getpass)}&createShift=true`;
+            // 1. TẠO POPUP HTML ĐỘNG ĐỂ KHÔNG BỊ PHỤ THUỘC VÀO TRÌNH DUYỆT HỆ ĐIỀU HÀNH
+            const popupId = 'pos-machine-picker-modal';
+            let macroPopup = document.getElementById(popupId);
+            if (!macroPopup) {
+                macroPopup = document.createElement('div');
+                macroPopup.id = popupId;
+                macroPopup.style = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); display:flex; justify-content:center; align-items:center; z-index:99999;";
+                macroPopup.innerHTML = `
+                    <div style="background:white; padding:25px; border-radius:12px; width:360px; box-shadow:0 4px 15px rgba(0,0,0,0.2); text-align:center;">
+                        <h3 style="color:#0b5aa6; margin-bottom:15px; font-family:Arial, sans-serif;">CẤU HÌNH MÁY POS</h3>
+                        <p style="font-size:0.9rem; color:#555; margin-bottom:15px;">Vui lòng nhập số định danh máy POS đang sử dụng:</p>
+                        <input type="number" id="popup-maypos-value" value="1" min="1" style="width:100%; padding:10px; margin-bottom:15px; border:1px solid #ccc; border-radius:6px; font-size:1.1rem; text-align:center; outline:none;">
+                        <div style="display:flex; gap:10px; justify-content:center;">
+                            <button id="btn-popup-cancel" style="padding:10px 20px; background:#6c757d; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">Hủy</button>
+                            <button id="btn-popup-confirm" style="padding:10px 20px; background:#0b5aa6; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">Xác nhận</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(macroPopup);
+            } else {
+                macroPopup.style.display = 'flex';
+            }
+            const getMayPos = await new Promise((resolve) => {
+                document.getElementById('btn-popup-cancel').onclick = () => {
+                    macroPopup.style.display = 'none';
+                    resolve(null);
+                };
+                
+                document.getElementById('btn-popup-confirm').onclick = () => {
+                    const inputVal = document.getElementById('popup-maypos-value').value.trim();
+                    const parsed = parseInt(inputVal);
+                    if (!inputVal || isNaN(parsed) || parsed <= 0) {
+                        alert("Số máy POS không hợp lệ! Vui lòng nhập số nguyên dương.");
+                        return;
+                    }
+                    macroPopup.style.display = 'none';
+                    resolve(parsed);
+                };
+            });
+            if (getMayPos === null) {
+                alert("Đăng nhập bị hủy vì chưa xác định số máy POS!");
+                return;
+            }
+            sessionStorage.setItem('currentMayPos', getMayPos);
+            let url = `http://localhost:8080/api/auth/login?id=${getid}&password=${encodeURIComponent(getpass)}&createShift=true&maypos=${getMayPos}`;
             const response = await fetch(url, { method: 'POST' });
             
             if (response.ok) {

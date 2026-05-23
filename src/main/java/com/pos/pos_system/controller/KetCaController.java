@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ketca")
@@ -26,13 +27,27 @@ public class KetCaController {
     @Autowired private PdfService4KetCa PdfService4KetCa;
 
     @PostMapping("/save-log")
-    // Sử dụng thẳng DTO PayLoadTienMat ở đây
-    public ResponseEntity<?> saveLog(@RequestBody PayLoadTienMat payload) {
+    public ResponseEntity<?> saveLog(@RequestBody Map<String, Object> payload) {
+        // 1. Trích xuất an toàn thuộc tính mayPos từ JSON Frontend gửi lên
+        Integer mayPos = 1;
+        if (payload.containsKey("mayPos") && payload.get("mayPos") != null) {
+            mayPos = Integer.parseInt(payload.get("mayPos").toString());
+        }
+        
         try {
-            Integer nhanVienId = payload.getNhanVienId(); 
-            Double cashCounted = payload.getTienmat();
-            Boolean quanly = payload.getQuanly();
+            // Sửa lỗi ép kiểu ngầm tiềm ẩn cho nhanVienId
+            Integer nhanVienId = payload.get("nhanVienId") != null ? ((Number) payload.get("nhanVienId")).intValue() : null;
+            if (nhanVienId == null) {
+                return ResponseEntity.badRequest().body("Thiếu ID nhân viên/quản lý!");
+            }
 
+            Double cashCounted = 0.0;
+            if (payload.get("tienmat") != null) {
+                cashCounted = ((Number) payload.get("tienmat")).doubleValue();
+            }
+            
+            Boolean quanly = (Boolean) payload.get("quanly");
+            
             if (quanly) {
                 NhanVien nv = nhanVienRepo.findById(nhanVienId).orElse(null);
                 if (nv == null) {
@@ -41,12 +56,14 @@ public class KetCaController {
                 
                 CaLam newShift = new CaLam();
                 newShift.setNhanVien(nv);
-                // Tạo ca mới thì set thời gian BẮT ĐẦU nhé
                 newShift.setBatdau(LocalDateTime.now()); 
                 newShift.setKetthuc(LocalDateTime.now()); 
                 newShift.setTienmatKetca(cashCounted); 
                 
-                caLamRepo.save(newShift); // Lệnh này sẽ tạo ra log INSERT
+                // ĐÃ SỬA: Gán giá trị máy POS vào đây để Oracle không báo lỗi NULL ở luồng INSERT
+                newShift.setMayPos(mayPos); 
+                
+                caLamRepo.save(newShift); 
                 return ResponseEntity.ok("Tạo ca mới thành công!");
             } else {
                 // Logic cập nhật ca cũ
@@ -55,12 +72,16 @@ public class KetCaController {
                     return ResponseEntity.badRequest().body("Lỗi: Không tìm thấy ca làm gần nhất!");
                 }
 
-                shift.setKetthuc(LocalDateTime.now()); // Set thời gian kết thúc
+                shift.setKetthuc(LocalDateTime.now()); 
                 shift.setTienmatKetca(cashCounted);
+                
+                // ĐÃ SỬA: Đồng bộ cập nhật hoặc giữ vững số máy POS ở luồng UPDATE
+                shift.setMayPos(mayPos);
+                
                 Double sysBank = shift.getTienNganhang() != null ? shift.getTienNganhang() : 0.0;
                 shift.setTongtienThucte(sysBank + cashCounted);
                 
-                caLamRepo.save(shift); // Lệnh này sẽ tạo ra log UPDATE
+                caLamRepo.save(shift); 
                 return ResponseEntity.ok("Cập nhật kết ca thành công!");
             }
         } catch (Exception e) {
@@ -70,10 +91,12 @@ public class KetCaController {
     }
 
     @GetMapping("/logs-today")
-    public List<CaLam> getLogsToday() {
+    public List<CaLam> getLogsToday(@RequestParam(defaultValue = "1") Integer mayPos) {
         LocalDateTime start = LocalDate.now().atStartOfDay();
         LocalDateTime end = LocalDate.now().atTime(LocalTime.MAX);
-        return caLamRepo.findByBatdauBetweenAndKetthucIsNotNullOrderByIdAsc(start, end);
+        
+        // Truyền tham số mayPos động nhận từ Frontend gửi lên
+        return caLamRepo.findByMayPosAndBatdauBetweenAndKetthucIsNotNullOrderByIdAsc(mayPos, start, end);
     }
 
     @GetMapping("/export-pdf/{id}")

@@ -13,7 +13,7 @@ public class HoaDon {
     private String id;
 
     @ManyToOne
-    @JoinColumn(name = "khach_sdt") 
+    @JoinColumn(name = "khachhang_id", referencedColumnName = "id")
     private KhachHang khachHang;
 
     @ManyToOne
@@ -34,10 +34,7 @@ public class HoaDon {
 
     @Column(name = "trangthai")
     private String trangthai;
-
-    // =========================================================================
-    // BỔ SUNG QUAN TRỌNG: Để gọi được hd.getChiTiet() xuất món ăn ra file PDF
-    // =========================================================================
+    
     @OneToMany(mappedBy = "hoadon", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private List<CTHD> chiTiet;
 }

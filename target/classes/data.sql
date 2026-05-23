@@ -191,7 +191,7 @@ INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (278, 
 INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (279, 'Bánh quy mặn AFC', 'Snack', 25000, 50, '');
 INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (280, 'Hạt óc chó tách vỏ', 'Snack', 85000, 50, '');
 INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (281, 'Snack khoai tây lon Pringles', 'Snack', 42000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (282, 'Kẹo sô cô la M&M', 'Snack', 20000, 50, '');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (282, 'Kẹo sô cô la M và M', 'Snack', 20000, 50, '');
 INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (283, 'Bánh Donut sô cô la', 'Snack', 15000, 50, '');
 INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (284, 'Kẹo dừa Bến Tre', 'Snack', 25000, 50, '');
 INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (285, 'Đậu Hà Lan sấy muối', 'Snack', 18000, 50, '');
