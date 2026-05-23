@@ -168,53 +168,72 @@ public class PosSystemApplication extends Application {
             new Thread(() -> {
                 HttpURLConnection httpConn = null;
                 try {
-                    URL url = new URL(baseUrl + endpoint);
+                    URL url = new URL( endpoint);
                     httpConn = (HttpURLConnection) url.openConnection();
                     httpConn.setRequestMethod("GET");
+                    
                     if (token != null && !token.isEmpty() && !token.equals("null")) {
                         httpConn.setRequestProperty("Authorization", "Bearer " + token);
                     }
-
+                    
                     int responseCode = httpConn.getResponseCode();
                     if (responseCode == HttpURLConnection.HTTP_OK) {
+                        
+                        // YÊU CẦU: Mặc định lưu toàn bộ vào thư mục C:/POS_pdf độc lập
                         File targetDir = new File("C:/POS_pdf");
-                        if (!targetDir.exists()) targetDir.mkdirs();
+                        if (!targetDir.exists()) {
+                            targetDir.mkdirs(); // Tự động tạo thư mục nếu chưa có
+                        }
                         File saveFile = new File(targetDir, filename);
-
+                        
+                        // Sử dụng try-with-resources để tự động giải phóng và đóng file ngay khi ghi xong
                         try (InputStream inputStream = httpConn.getInputStream();
                              FileOutputStream outputStream = new FileOutputStream(saveFile)) {
+                            
                             byte[] buffer = new byte[4096];
                             int bytesRead;
                             while ((bytesRead = inputStream.read(buffer)) != -1) {
                                 outputStream.write(buffer, 0, bytesRead);
                             }
-                            outputStream.flush();
+                            outputStream.flush(); // Ép xả hết dữ liệu nhị phân xuống đĩa cứng
                         }
-
+                        
+                        // Thông báo và mở file trên luồng đồ họa JavaFX
                         Platform.runLater(() -> {
                             try {
                                 java.awt.Desktop.getDesktop().open(saveFile);
                             } catch (Exception e) {
                                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                                alert.setTitle("Hệ Thống");
-                                alert.setContentText("File lưu tại: " + saveFile.getAbsolutePath());
+                                alert.setTitle("Hệ Thống Máy POS");
+                                alert.setHeaderText("✅ ĐÃ XUẤT FILE THÀNH CÔNG!");
+                                alert.setContentText("File đã được lưu an toàn tại: " + saveFile.getAbsolutePath());
                                 alert.showAndWait();
                             }
+                        });
+                    } else {
+                        final int finalCode = responseCode;
+                        Platform.runLater(() -> {
+                            Alert alert = new Alert(Alert.AlertType.ERROR);
+                            alert.setTitle("Lỗi Tải File");
+                            alert.setContentText("Máy chủ trả về mã lỗi bảo mật (HTTP Code): " + finalCode);
+                            alert.showAndWait();
                         });
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
+                    Platform.runLater(() -> {
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Lỗi Kết Nối");
+                        alert.setContentText("Không thể kết nối tới máy chủ Backend: " + e.getMessage());
+                        alert.showAndWait();
+                    });
                 } finally {
-                    if (httpConn != null) httpConn.disconnect();
+                    // ĐÓNG CƯỠNG BỨC KẾT NỐI MẠNG để giải phóng tài nguyên cho lần bấm tiếp theo
+                    if (httpConn != null) {
+                        httpConn.disconnect();
+                    }
                 }
             }).start();
-        }
-
-        public void createNewSessionWindow(String windowTitle) {
-            Platform.runLater(() -> {
-                Stage newStage = new Stage();
-                openNewWindow(newStage, windowTitle, false);
-            });
         }
     }
 }

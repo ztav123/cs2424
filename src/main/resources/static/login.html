@@ -661,7 +661,7 @@
             // ==========================================
             // 1. DÀNH CHO ỨNG DỤNG JAVAFX DESKTOP
             // ==========================================
-            window.app.downloadPdf(`/api/ketca/export-pdf/${id}`, token, `BaoCao_KetCa_${id}.pdf`); 
+            window.app.downloadPdf(`http://localhost:8080/api/ketca/export-pdf/${id}`, token, `BaoCao_KetCa_${id}.pdf`); 
         } else {
             // ==========================================
             // 2. DÀNH CHO TRÌNH DUYỆT WEB

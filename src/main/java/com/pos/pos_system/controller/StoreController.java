@@ -39,10 +39,13 @@ public class StoreController {
     }
 
     // Tìm khách hàng qua SĐT
+    // Tìm khách hàng qua SĐT
     @GetMapping("/khachhang/{sdt}")
     public ResponseEntity<?> getKhachHang(@PathVariable String sdt) {
-        KhachHang kh = khachHangRepo.findById(sdt).orElse(null);
-        if (kh != null) return ResponseEntity.ok(kh);
-        return ResponseEntity.notFound().build();
+        KhachHang kh = khachHangRepo.findBySdt(sdt).orElse(null);
+        if (kh != null) {
+            return ResponseEntity.ok(kh);
+        }
+        return ResponseEntity.notFound().build(); 
     }
 }

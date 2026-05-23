@@ -69,7 +69,7 @@ public class CheckoutService {
         hd.setNhanVien(nhanVienRepo.findById(req.getNhanVienId()).orElse(null));
         
         if (req.getKhachHangSdt() != null && !req.getKhachHangSdt().isEmpty()) {
-            hd.setKhachHang(khachHangRepo.findById(req.getKhachHangSdt()).orElse(null));
+            hd.setKhachHang(khachHangRepo.findBySdt(req.getKhachHangSdt()).orElse(null));
         }
 
         hd.setNgaylap(LocalDateTime.now());

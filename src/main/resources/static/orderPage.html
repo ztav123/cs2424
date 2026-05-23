@@ -524,9 +524,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const printBillId = urlParams.get('printBill');
         if (printBillId) {
-            setTimeout(() => {
-                downloadReceipt(printBillId);
-            }, 1500); 
+                downloadPdf(printBillId);
             
             window.history.replaceState({}, document.title, window.location.pathname);
         }
@@ -821,7 +819,7 @@
             if (res.ok) {
                 const customer = await res.json();
                 document.getElementById('displayPhone').textContent = customer.sdt;
-                document.getElementById('displayCustomerName').textContent = customer.ten;
+                document.getElementById('displayCustomerName').textContent = customer.hoten;
                 document.getElementById('displayCustomerPoints').textContent = customer.diemtichluy || 0; // Update từ DB
                 resultArea.style.display = 'block';
                 document.getElementById('newCustomerArea').style.display = 'none';
@@ -843,7 +841,7 @@
         try {
             const res = await fetch('http://localhost:8080/api/store/khachhang', {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sessionStorage.getItem('accessToken')}` },
-                body: JSON.stringify({ sdt: phone, ten: name })
+                body: JSON.stringify({ sdt: phone, hoten: name })
             });
             if (res.status === 403 || res.status === 401) {
                 alert("Phiên đăng nhập hết hạn hoặc bạn không có quyền. Vui lòng đăng nhập lại!");
@@ -943,55 +941,61 @@
             if (res.ok) {
                 if (data.url) {
                     const token = sessionStorage.getItem('accessToken');
-                    // Nếu là thanh toán VNPay -> Trình duyệt tự động chuyển sang trang VNPay
                     window.location.href = data.url;
                 } else {
                     alert(data.message);
                     paymentModal.style.display = 'none';
                     clearCart();
                     loadProducts(); 
-                    setTimeout(() => {
-                        downloadReceipt(orderData.id);
-                    }, 1000);
                 }
+                downloadPdf(orderData.id); 
             } else {
                 alert(data.error || "Lỗi thanh toán!");
+                window.location.href = 'orderPage.html';
             }
         } catch (error) { 
             alert("Lỗi hệ thống khi thanh toán!"); 
+            window.location.href = 'orderPage.html';
         }
     }
-    async function downloadReceipt(invoiceId) {
-        try {
-            const token = sessionStorage.getItem('accessToken') || ''; 
-            if (!token) {
-                alert("Phiên đăng nhập không hợp lệ!");
-                return;
-            }
-            
-            const fullUrl = `http://localhost:8080/api/checkout/export-pdf/${invoiceId}`;
+    async function downloadPdf(id) {
+        const token = sessionStorage.getItem('accessToken');
+        if (!token) {
+            alert("Phiên đăng nhập không hợp lệ!");
+            return;
+        }
 
-            if (window.app) {
-                window.app.downloadPdf(fullUrl, token, `HoaDon_${invoiceId}.pdf`);
-            } else {
-                const res = await fetch(fullUrl, {
+        if (window.app) {
+            window.app.downloadPdf(`http://localhost:8080/api/checkout/export-pdf/${id}`, token, `HoaDon_${id}.pdf`); 
+        } else {
+            // ==========================================
+            // 2. DÀNH CHO TRÌNH DUYỆT WEB
+            // ==========================================
+            try {
+                const response = await fetch(`http://localhost:8080/api/checkout/export-pdf/${id}`, {
+                    method: 'GET',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                if (res.ok) {
-                    const blob = await res.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = `HoaDon_${invoiceId}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
+
+                if (!response.ok) {
+                    alert("Lỗi tải file! Vui lòng kiểm tra quyền hoặc ID ca làm.");
+                    return;
                 }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `HoaDon_${id}.pdf`; 
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            } catch (error) {
+                console.error("Lỗi khi tải file PDF:", error);
+                alert("Lỗi kết nối khi xuất PDF!");
             }
-        } catch (e) { 
-            console.error("Lỗi mạng khi xuất hóa đơn:", e); 
         }
     }
 </script>

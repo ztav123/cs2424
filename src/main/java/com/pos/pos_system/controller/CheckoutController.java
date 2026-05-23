@@ -68,27 +68,78 @@ public class CheckoutController {
 
         if ("00".equals(vnp_ResponseCode)) {
             
-            // =================================================================================
-            // FALLBACK CHỐNG LỖI LOCALHOST: 
-            // Nếu VNPay không gọi được IPN (do chạy localhost), ta update tạm ở đây để có dữ liệu
-            // Nếu IPN đã chạy thành công trước đó (khi up lên server thật), đoạn này sẽ bỏ qua
-            // =================================================================================
             HoaDon hd = hoaDonRepo.findById(orderId).orElse(null);
-            if (hd != null && "CHO_THANH_TOAN".equals(hd.getTrangthai())) {
-                checkoutService.updateOrderStatus(orderId, "HOAN_THANH");
-                System.out.println("Return Fallback: Đã cập nhật thành công đơn hàng " + orderId);
+            if (hd != null) {
+                // CHỐT CHẶN BẢO VỆ: Chỉ kích hoạt luồng in file nếu đơn hàng thực sự đang ở trạng thái CHỜ THANH TOÁN
+                // Nếu khách hàng chưa bấm xác nhận thành công trên cổng VNPay, trạng thái sẽ không thỏa mãn hoặc không bị trùng lặp
+                if ("CHO_THANH_TOAN".equals(hd.getTrangthai())) {
+                    
+                    // 1. Chuyển trạng thái hóa đơn sang hoàn thành trong database
+                    checkoutService.updateOrderStatus(orderId, "HOAN_THANH");
+                    System.out.println("Return Fallback: Đã cập nhật thành công đơn hàng sang HOAN_THANH: " + orderId);
+                    
+                    // Ép nạp danh sách chi tiết sản phẩm sạch từ cơ sở dữ liệu để vẽ bảng CTHD
+                    hd.setChiTiet(cthdRepo.findByHoadon_Id(orderId));
+
+                    // 2. CHỈ KHI NÀO CHUYỂN TRẠNG THÁI THÀNH CÔNG MỚI CHO PHÉP IN HÓA ĐƠN
+                    final HoaDon finalHd = hd;
+                    new Thread(() -> {
+                        try {
+                            // Chờ 1 giây để đảm bảo Transaction của database đã commit hoàn toàn dữ liệu
+                            Thread.sleep(1000); 
+
+                            java.io.File targetDir = new java.io.File("C:/POS_pdf");
+                            if (!targetDir.exists()) {
+                                targetDir.mkdirs();
+                            }
+                            java.io.File saveFile = new java.io.File(targetDir, "HoaDon_" + orderId + ".pdf");
+                            
+                            // Giả lập Mock HttpServletResponse
+                            jakarta.servlet.http.HttpServletResponse mockResponse = (jakarta.servlet.http.HttpServletResponse) 
+                                java.lang.reflect.Proxy.newProxyInstance(
+                                    jakarta.servlet.http.HttpServletResponse.class.getClassLoader(),
+                                    new Class<?>[]{jakarta.servlet.http.HttpServletResponse.class},
+                                    (proxy, method, methodArgs) -> {
+                                        if ("getOutputStream".equals(method.getName())) {
+                                            return new jakarta.servlet.ServletOutputStream() {
+                                                private final java.io.FileOutputStream fos = new java.io.FileOutputStream(saveFile);
+                                                @Override public boolean isReady() { return true; }
+                                                @Override public void setWriteListener(jakarta.servlet.WriteListener writeListener) {}
+                                                @Override public void write(int b) throws java.io.IOException { fos.write(b); }
+                                                @Override public void write(byte[] b, int off, int len) throws java.io.IOException { fos.write(b, off, len); }
+                                                @Override public void close() throws java.io.IOException { fos.close(); super.close(); }
+                                            };
+                                        }
+                                        return null;
+                                    }
+                                );
+
+                            // Gọi tầng nghiệp vụ ghi tệp tin trực tiếp xuống ổ cứng
+                            pdfService4HoaDon.exportReceipt(mockResponse, finalHd);
+                            System.out.println("✅ Backend tự động in hóa đơn thành công tại: " + saveFile.getAbsolutePath());
+                            
+                            // Mở file trực tiếp lên màn hình Desktop của máy POS
+                            if (java.awt.Desktop.isDesktopSupported()) {
+                                java.awt.Desktop.getDesktop().open(saveFile);
+                            }
+                        } catch (Exception e) {
+                            System.err.println("❌ Lỗi luồng in hóa đơn ngầm tại Backend: " + e.getMessage());
+                        }
+                    }).start();
+                }
             }
 
-            // ĐÃ SỬA: Đưa url về đúng localhost:8080 để trình duyệt không làm mất Token
+            // 3. TRẢ VỀ GIAO DIỆN HTML ĐIỀU HƯỚNG QUAY VỀ TRANG BÁN HÀNG
             return "<!DOCTYPE html><html lang='vi'><head><meta charset='UTF-8'>" +
-                   "<meta http-equiv='refresh' content='5;url=http://localhost:8080/orderPage.html?printBill=" + orderId + "' />" +
+                   "<meta http-equiv='refresh' content='2;url=http://localhost:8080/orderPage.html' />" +
                    "<title>Thanh toán thành công</title>" +
                    "<style>body{font-family:Arial;text-align:center;padding-top:100px;background:#eaf1f7;}</style>" +
                    "</head><body>" +
                    "<h1 style='color:#1a9e2a;'>✅ GIAO DỊCH THÀNH CÔNG!</h1>" +
                    "<h3>Mã hóa đơn: " + orderId + "</h3>" +
-                   "<p>Hệ thống tự động in hóa đơn và quay về trang Bán Hàng sau 5 giây...</p>" +
-                   "<button onclick='window.location.href=\"http://localhost:8080/orderPage.html?printBill=" + orderId + "\"' style='padding:10px 20px;background:#0b5aa6;color:white;border:none;border-radius:5px;cursor:pointer;font-size:16px;margin-top:20px;'>Quay về & In Bill</button>" +
+                   "<p>Hệ thống Backend đã xác thực và tự động xuất hóa đơn thành công.</p>" +
+                   "<p>Ứng dụng đang quay trở lại trang bán hàng...</p>" +
+                   "<button onclick='window.location.href=\"http://localhost:8080/orderPage.html\"' style='padding:10px 20px;background:#0b5aa6;color:white;border:none;border-radius:5px;cursor:pointer;font-size:16px;margin-top:20px;'>Quay về ngay</button>" +
                    "</body></html>";
         } else {
             // FALLBACK KHI THANH TOÁN THẤT BẠI
@@ -109,7 +160,11 @@ public class CheckoutController {
     @Autowired private com.pos.pos_system.repository.CTHDRepository cthdRepo; // Thêm dòng này
 
     @GetMapping(value = "/export-pdf/{id}", produces = "application/pdf")
-    public void exportReceiptPDF(HttpServletResponse response, @PathVariable String id) throws IOException {        
+    public void exportReceiptPDF(HttpServletResponse response, @PathVariable String id) throws IOException {
+        
+        // Đảm bảo xóa bộ đệm cũ để tránh xung đột dữ liệu dòng
+        response.reset(); 
+        
         response.setContentType("application/pdf");
         response.setHeader("Content-Disposition", "attachment; filename=HoaDon_" + id + ".pdf");
 
@@ -120,6 +175,9 @@ public class CheckoutController {
             
             // Tiến hành ghi file xuất trực tiếp ra luồng Output của Response
             pdfService4HoaDon.exportReceipt(response, hd);
+            
+            // Ép luồng xả hết dữ liệu xuống mạng, tránh kẹt dữ liệu gây file trống
+            response.getOutputStream().flush(); 
         }
     }
 

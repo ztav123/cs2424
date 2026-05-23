@@ -2,6 +2,11 @@ package com.pos.pos_system.controller;
 
 import com.pos.pos_system.entity.HoaDon;
 import com.pos.pos_system.repository.HoaDonRepository;
+import java.io.IOException;
+import com.pos.pos_system.service.PdfService4HoaDon;
+
+import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,6 +22,8 @@ public class HoaDonController {
 
     @Autowired
     private HoaDonRepository hoadonRepo;
+    @Autowired
+    private PdfService4HoaDon pdfService4HoaDon;
 
     // Thay thế hàm getAll() cũ bằng hàm phân trang này
     @GetMapping
@@ -34,5 +41,15 @@ public class HoaDonController {
     @GetMapping("/{id}")
     public HoaDon getById(@PathVariable String id) {
         return hoadonRepo.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn"));
+    }
+    @GetMapping("/export-pdf/{id}")
+    public void exportReceiptPDF(HttpServletResponse response, @PathVariable String id) throws IOException {
+        response.setContentType("application/pdf");
+        response.setHeader("Content-Disposition", "attachment; filename=HoaDon_" + id + ".pdf");
+
+        HoaDon hd = hoadonRepo.findById(id).orElse(null);
+        if (hd != null) {
+            pdfService4HoaDon.exportReceipt(response, hd);
+        }
     }
 }

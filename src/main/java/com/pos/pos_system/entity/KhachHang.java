@@ -10,16 +10,16 @@ import java.time.LocalDate;
 public class KhachHang {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private String id; 
+    private Integer id;
 
     @Column(name = "sdt")
     private String sdt;
 
-    @Column(name = "hoten") // Đổi ten -> hoten
+    @Column(name = "hoten")
     private String hoten;
 
-    @Column(name = "diemtichluy") // Đổi diem -> diemtichluy
+    @Column(name = "diemtichluy")
     private Integer diemtichluy;
 
-    private LocalDate ngaytao; // Đổi ngayLap -> ngaytao
+    private LocalDate ngaytao;
 }
