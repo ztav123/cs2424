@@ -5,6 +5,7 @@ import com.pos.pos_system.repository.SanPhamRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;   
 
 @RestController
 @RequestMapping("/api/sanpham")
@@ -12,28 +13,37 @@ import java.util.List;
 public class SanPhamController {
 
     @Autowired
-    private SanPhamRepository repo;
+    private SanPhamRepository sanPhamRepo;
 
-    // Lấy toàn bộ sản phẩm
+    // API mới dành riêng cho trang bán hàng (orderPage.html)
+    @GetMapping("/active")
+    public List<SanPham> getAllActive() {
+        return sanPhamRepo.findByIsDeleted(0);
+    }
+
+    // Giữ nguyên API cũ cho trang Quản lý (TienIchQuanLy.html)
     @GetMapping
     public List<SanPham> getAll() {
-        return repo.findAll();
+        return sanPhamRepo.findAll();
     }
 
-    // Thêm sản phẩm mới
-    @PostMapping
-    public SanPham create(@RequestBody SanPham sp) {
-        return repo.save(sp);
-    }
-
-    // Cập nhật hoặc Xóa mềm (Set tồn kho = 0)
     @PutMapping("/{id}")
-    public SanPham update(@PathVariable Integer id, @RequestBody SanPham spDetails) {
-        SanPham sp = repo.findById(id).orElseThrow(() -> new RuntimeException("Không tìm thấy SP"));
-        sp.setTen(spDetails.getTen());
-        sp.setCategory(spDetails.getCategory());
-        sp.setGiaban(spDetails.getGiaban());
-        sp.setTonkho(spDetails.getTonkho());
-        return repo.save(sp);
+    public SanPham update(@PathVariable Integer id, @RequestBody Map<String, Object> spDetails) {
+        SanPham sp = sanPhamRepo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy SP"));
+        
+        sp.setTen(spDetails.get("ten").toString());
+        sp.setCategory(spDetails.get("category").toString());
+        sp.setGiaban(Integer.parseInt(spDetails.get("giaban").toString()));
+        sp.setTonkho(Integer.parseInt(spDetails.get("tonkho").toString()));
+        
+        // Cập nhật thuộc tính trạng thái kinh doanh an toàn
+        if (spDetails.containsKey("is_deleted") && spDetails.get("is_deleted") != null) {
+            sp.setIsDeleted(Integer.parseInt(spDetails.get("is_deleted").toString()));
+        } else {
+            sp.setIsDeleted(0); // Mặc định là 0 nếu trống
+        }
+        
+        return sanPhamRepo.save(sp);
     }
 }

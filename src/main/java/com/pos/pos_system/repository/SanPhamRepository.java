@@ -20,4 +20,5 @@ public interface SanPhamRepository extends JpaRepository<SanPham, Integer> {
     @Query("SELECT s FROM SanPham s WHERE s.id IN :ids")
     List<SanPham> findByIdsForUpdate(@Param("ids") List<Integer> ids);
     List<SanPham> findByCategory(String category);
+    List<SanPham> findByIsDeleted(Integer isDeleted);
 }

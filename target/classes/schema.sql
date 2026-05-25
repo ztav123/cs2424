@@ -21,8 +21,7 @@ create table NHANVIEN (
     sdt varchar2(15),
     mkdangnhap varchar2(255) not null,
     vaitro varchar2(20) default 'NHANVIEN', 
-    trangthai number(1) default 1, 
-    is_deleted number(1) default 0
+    trangthai number(1) default 1
 );
 
 -- 2. BẢNG KHÁCH HÀNG (Sử dụng ID làm PK, SĐT làm Unique)
@@ -161,7 +160,7 @@ BEGIN
                 VALUES (:NEW.sanpham_id, 'Sản phẩm lỗi ID - Tự động tạo', 'Hệ thống', 0, 
                         CASE WHEN UPPER(TRIM(:NEW.loai_phieu)) LIKE 'NHAP%' THEN :NEW.so_luong ELSE 0 END, 
                         NULL);
-                
+
                 v_tonkho_hientai := 0;
                 v_is_new_product := TRUE; -- Đánh dấu đã xử lý xong kho
         END;
@@ -342,7 +341,7 @@ END;
 
 -- TRIGGER 7: Tạo mã Nhân Viên
 CREATE OR REPLACE TRIGGER TRG_NHANVIEN_MA
-BEFORE INSERT ON NHANVIEN
+before INSERT ON NHANVIEN
 FOR EACH ROW
 DECLARE
     -- Sử dụng giao dịch tự trị để tránh lỗi Mutating Table (ORA-04091)
@@ -352,16 +351,16 @@ DECLARE
 BEGIN
     -- Lấy tháng hiện tại định dạng YYMM (VD: 2605)
     v_yymm := TO_CHAR(SYSDATE, 'YYMM');
-    
+
     -- Tìm số thứ tự lớn nhất của tháng hiện tại, nếu chưa có ai thì gán 0
-    SELECT NVL(MAX(TO_NUMBER(SUBSTR(ma_nhanvien, 5, 2))), 0)
+    SELECT NVL(MAX(TO_NUMBER(SUBSTR(id, 5, 2))), 0)
     INTO v_max_stt
     FROM NHANVIEN
-    WHERE ma_nhanvien LIKE v_yymm || '%';
-    
+    WHERE id LIKE v_yymm || '%';
+
     -- Ghép YYMM với số thứ tự tiếp theo (LPAD để đảm bảo 2 chữ số 01, 02...)
-    :NEW.ma_nhanvien := v_yymm || LPAD(v_max_stt + 1, 2, '0');
-    
+    :NEW.id := v_yymm || LPAD(v_max_stt + 1, 2, '0');
+
     -- Bắt buộc phải có COMMIT khi dùng AUTONOMOUS_TRANSACTION
     COMMIT; 
 END;

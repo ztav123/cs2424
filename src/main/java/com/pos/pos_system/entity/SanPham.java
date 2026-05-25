@@ -25,4 +25,7 @@ public class SanPham {
     public void setTonkho(Integer tonkho) {
         this.tonkho = tonkho;
     }
+
+    @Column(name = "is_deleted")
+    private Integer isDeleted;
 }

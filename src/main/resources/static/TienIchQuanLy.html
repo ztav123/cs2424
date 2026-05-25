@@ -229,13 +229,13 @@
     let sortConfig = { column: null, order: 'asc' };
     
     const colDef = {
-        sp: ['id', 'ten', 'category', 'giaban', 'tonkho'],
+        sp: ['id', 'ten', 'category', 'giaban', 'tonkho', 'isDeleted'],
         nv: ['id', 'hoten', 'sdt', 'vaitro', 'trangthai'],
         hd: ['id', 'khachHang', 'ngaylap', 'tongtien', 'trangthai']
     };
 
     const colNames = {
-        id: 'ID', ten: 'Tên Sản Phẩm', category: 'Danh mục', giaban: 'Giá Bán', tonkho: 'Tồn Kho',
+        id: 'ID', ten: 'Tên Sản Phẩm', category: 'Danh mục', giaban: 'Giá Bán', tonkho: 'Tồn Kho', isDeleted: 'Ngừng bán',
         hoten: 'Họ Tên', sdt: 'SĐT', vaitro: 'Vai Trò', trangthai: 'Trạng Thái',
         khachHang: 'Khách Hàng', ngaylap: 'Ngày Lập', tongtien: 'Tổng Tiền'
     };
@@ -283,6 +283,9 @@
                     }
                     if (col === 'tonkho') {
                         cellValue = cellValue > 0 ? cellValue : '<span style="color:red">Hết hàng</span>';
+                    }
+                    if (col === 'isDeleted') {
+                        cellValue = cellValue === 1 ? '<span style="color:red">Ngừng bán</span>' : '<span style="color:green">Còn bán</span>';
                     }
                     rowHtml += `<td>${cellValue}</td>`;
                 });
@@ -469,6 +472,19 @@
                 }
             });
 
+            if (isEdit) {
+                const currentStatus = (focusedRowData && focusedRowData.isDeleted !== undefined) ? focusedRowData.isDeleted : 0;
+                formBody.innerHTML += `
+                    <div class="form-group">
+                        <label style="color: #0b5aa6; font-weight: bold;">Trạng thái kinh doanh</label>
+                        <select id="input-is_deleted">
+                            <option value="0" ${currentStatus == 0 ? 'selected' : ''}>Đang kinh doanh</option>
+                            <option value="1" ${currentStatus == 1 ? 'selected' : ''}>Ngừng bán (Ẩn khỏi POS)</option>
+                        </select>
+                    </div>
+                `;
+            }
+
             if (!isEdit) {
                 formBody.innerHTML += `
                     <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ccc; text-align:center;">
@@ -481,7 +497,7 @@
                 `;
             }
             modal.style.display = 'flex';
-        } 
+        }
         
         // --- TRƯỜNG HỢP 3: XỬ LÝ TAB NHÂN VIÊN ---
         else if (currentTab === 'nv') {
@@ -556,30 +572,32 @@
             const quanlyId = sessionStorage.getItem('currentQuanLyId');
             
             try {
-                // 1. Cập nhật Tên, Giá, Category qua API SanPham
+                // ĐÃ SỬA: Thu thập chính xác giá trị từ Dropdown input-is_deleted
+                const selectIsDeleted = document.getElementById('input-is_deleted') ? parseInt(document.getElementById('input-is_deleted').value) : 0;
+
                 const spPayload = {
                     ten: document.getElementById('input-ten').value,
                     category: document.getElementById('input-category').value,
                     giaban: document.getElementById('input-giaban').value,
-                    tonkho: focusedRowData.tonkho 
+                    tonkho: focusedRowData.tonkho,
+                    is_deleted: selectIsDeleted // Ráp biến vào payload gửi lên API
                 };
+                
                 await fetch(`${API_BASE}/sanpham/${focusedRowData.id}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' , 'Authorization': `Bearer ${token}`}, body: JSON.stringify(spPayload)
+                    method: 'PUT', 
+                    headers: { 'Content-Type': 'application/json' , 'Authorization': `Bearer ${token}`}, 
+                    body: JSON.stringify(spPayload)
                 });
 
-                // 2. Chỉ gửi Lịch Sử Kho nếu có biến động nhập số lượng > 0 hoặc < 0
                 if (soLuongBienDong !== 0) {
                     const lskPayload = {
                         sanphamId: focusedRowData.id,
                         soLuong: soLuongBienDong,
                         nguoiThucHien: quanlyId
                     };
-                    const resLsk = await fetch(`${API_BASE}/lichsukho/dieu-chinh`, {
+                    await fetch(`${API_BASE}/lichsukho/dieu-chinh`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' , 'Authorization': `Bearer ${token}`}, body: JSON.stringify(lskPayload) 
                     });
-                    if (!resLsk.ok) {
-                        alert('Lỗi cập nhật kho: ' + await resLsk.text()); return;
-                    }
                 }
                 
                 alert('Cập nhật Sản phẩm thành công!'); 

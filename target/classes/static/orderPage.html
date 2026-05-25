@@ -557,8 +557,8 @@
     async function loadProducts() {
         try {
             const token = sessionStorage.getItem('accessToken');
-        
-            const resSp = await fetch('http://localhost:8080/api/sanpham', { // Nhớ sửa lại đúng URL lấy sản phẩm của bạn
+    
+            const resSp = await fetch('http://localhost:8080/api/sanpham/active', { 
                 method: 'GET', 
                 headers: { 
                     'Authorization': `Bearer ${token}` 
