@@ -14,8 +14,7 @@ public class SanPham {
     private String category;
     private Integer giaban;
 
-    @Column(name = "image_url")
-    private String imageUrl;
+    
 
     private Integer tonkho;
     public Integer getTonkho() {
@@ -25,6 +24,8 @@ public class SanPham {
     public void setTonkho(Integer tonkho) {
         this.tonkho = tonkho;
     }
+
+    private String imageurl;
 
     @Column(name = "is_deleted")
     private Integer isDeleted;

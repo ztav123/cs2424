@@ -36,10 +36,13 @@ public class ThongKeController {
         String spChung = hoadonRepo.findSpBanChayNhat(from, to, nhanVienId);
         if (spChung == null) spChung = "Chưa có dữ liệu";
 
-        // 2. Native Query cho Biểu đồ (Đã tối giản, không lo lỗi ORA-00979)
+        // 2. Native Query cho Biểu đồ
         StringBuilder sql = new StringBuilder();
+        // Đã sửa: Tính tổng tiền nhưng CHỈ của những hóa đơn đã HOAN_THANH
         sql.append("SELECT TO_CHAR(hd.ngaylap, 'DD/MM') as ngay, SUM(hd.tongtien) as doanhthu ");
-        sql.append("FROM HOADON hd WHERE hd.ngaylap BETWEEN :from AND :to ");
+        sql.append("FROM HOADON hd ");
+        sql.append("WHERE hd.trangthai = 'HOAN_THANH' ");
+        sql.append("AND hd.ngaylap >= :from AND hd.ngaylap <= :to ");
         
         if (nhanVienId != null) {
             sql.append("AND hd.nhanvien_id = :nvId ");
@@ -48,8 +51,12 @@ public class ThongKeController {
         sql.append("GROUP BY TO_CHAR(hd.ngaylap, 'DD/MM') ORDER BY TO_CHAR(hd.ngaylap, 'DD/MM')");
 
         Query query = entityManager.createNativeQuery(sql.toString());
-        query.setParameter("from", from);
-        query.setParameter("to", to);
+        
+        // CÁCH SỬA LỖI ÉP KIỂU: 
+        // Oracle Native Query cần Date chuẩn, ta chuyển đổi an toàn từ LocalDateTime sang Timestamp
+        query.setParameter("from", java.sql.Timestamp.valueOf(from));
+        query.setParameter("to", java.sql.Timestamp.valueOf(to));
+        
         if (nhanVienId != null) query.setParameter("nvId", nhanVienId);
 
         List<Object[]> results = query.getResultList();

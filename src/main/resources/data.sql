@@ -3,13 +3,7 @@
 -- =====================================================
 -- Cấu trúc: id, hoten, sdt, mkdangnhap, vaitro, trangthai
 INSERT INTO NHANVIEN (id, hoten, sdt, mkdangnhap, vaitro, trangthai) 
-VALUES (999999, 'Phan Trần Quản Lý', '0900000000', '123456', 'ADMIN', 1);
-
-INSERT INTO NHANVIEN (id, hoten, sdt, mkdangnhap, vaitro, trangthai) 
-VALUES (67, 'Nguyen Phu Quoc', '0365931022', '123', 'NHANVIEN', 1);
-
-INSERT INTO NHANVIEN (id, hoten, sdt, mkdangnhap, vaitro, trangthai) 
-VALUES (36, 'Peter Lam', '0365122167', '1', 'NHANVIEN', 1);
+VALUES (999999, 'Phan Trần Quản Lý', '0900000000', '$2a$10$6GBBn2Me0DKmHG3ogIqY9OovUG0CX4dM3oZEzyuAN3LmeT2eVPezu', 'ADMIN', 1);
 
 
 -- =====================================================
@@ -19,21 +13,21 @@ VALUES (36, 'Peter Lam', '0365122167', '1', 'NHANVIEN', 1);
 -- ==========================================================
 -- NHÓM: FOOD (Đồ ăn) - Tổng cộng 60 món
 -- ==========================================================
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (101, 'Bánh mì thịt nướng', 'Food', 25000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (102, 'Cơm nắm cá hồi', 'Food', 18000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (103, 'Xôi gà nấm', 'Food', 20000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (104, 'Mì ly lẩu Thái', 'Food', 12000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (105, 'Sandwich trứng phô mai', 'Food', 22000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (106, 'Xúc xích tiệt trùng', 'Food', 10000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (107, 'Bánh bao nhân thịt', 'Food', 15000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (108, 'Trứng luộc lòng đào', 'Food', 8000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (109, 'Salad trộn dầu giấm', 'Food', 30000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (110, 'Bento lươn Nhật', 'Food', 55000, 50, '');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (101, 'Bánh mì thịt nướng', 'Food', 25000, 50, '\img\product\101.jpg');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (102, 'Cơm nắm cá hồi', 'Food', 18000, 50, '\img\product\102.png');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (103, 'Xôi gà nấm', 'Food', 20000, 50, '\img\product\103.webp');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (104, 'Mì ly lẩu Thái', 'Food', 12000, 50, '\img\product\104.jpg');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (105, 'Sandwich trứng phô mai', 'Food', 22000, 50, '\img\product\105.png');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (106, 'Xúc xích tiệt trùng', 'Food', 10000, 50, '\img\product\106.jpg');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (107, 'Bánh bao nhân thịt', 'Food', 15000, 50, '\img\product\107.jpg');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (108, 'Trứng luộc lòng đào', 'Food', 8000, 50, '\img\product\108.png');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (109, 'Salad trộn dầu giấm', 'Food', 30000, 50, '\img\product\109.jpg');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (110, 'Bento lươn Nhật', 'Food', 55000, 50, '\img\product\110.jpg');
 -- Thêm mới 50 món Food
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (151, 'Phở bò ăn liền', 'Food', 15000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (152, 'Bún bò Huế đóng gói', 'Food', 18000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (153, 'Cơm chiên Dương Châu', 'Food', 35000, 50, '');
-INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (154, 'Mì xào giòn', 'Food', 30000, 50, '');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (151, 'Phở bò ăn liền', 'Food', 15000, 50, '\img\product\151.jpg');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (152, 'Bún bò Huế đóng gói', 'Food', 18000, 50, '\img\product\152.webp');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (153, 'Cơm chiên Dương Châu', 'Food', 35000, 50, '\img\product\153.jpg');
+INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (154, 'Mì xào giòn', 'Food', 30000, 50, '\img\product\154.jpg');
 INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (155, 'Bánh giò nóng', 'Food', 12000, 50, '');
 INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (156, 'Bánh chưng mini', 'Food', 25000, 50, '');
 INSERT INTO SANPHAM (id, ten, category, giaban, tonkho, image_url) VALUES (157, 'Hủ tiếu Nam Vang', 'Food', 35000, 50, '');

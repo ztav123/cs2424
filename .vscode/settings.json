@@ -1,5 +1,6 @@
 {
     "maven.view": "hierarchical",
     "liveServer.settings.port": 5501,
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.compile.nullAnalysis.mode": "automatic"
 }

@@ -39,17 +39,63 @@ public class CheckoutController {
     @PostMapping("/thanhtoan")
     public ResponseEntity<?> thanhToan(@RequestBody OrderRequest req) {
         try {
-            // 1. Lưu Hóa đơn vào DB (Trạng thái CHO_THANH_TOAN nếu là Ngân Hàng)
-            checkoutService.processOrder(req);
+            // 1. Lưu Hóa đơn vào DB và HỨNG KẾT QUẢ ĐỂ LẤY ID
+            HoaDon savedHd = checkoutService.processOrder(req);
+            String orderId = savedHd.getId();
 
-            // 2. Nếu là Ngân hàng -> Tạo URL VNPay và gửi về Frontend
+            // 2. Nếu là Ngân hàng -> Tạo URL VNPay và gửi về Frontend (CHƯA IN HÓA ĐƠN NGAY)
             if ("Ngân hàng".equalsIgnoreCase(req.getPhuongThucThanhToan())) {
-                String paymentUrl = generateVNPayUrl(req.getTongTien().longValue(), req.getId());
-                // Trả về JSON chứa URL
+                String paymentUrl = generateVNPayUrl(req.getTongTien().longValue(), orderId);
                 return ResponseEntity.ok(Map.of("url", paymentUrl));
             }
 
-            // 3. Nếu là Tiền mặt / Momo -> Trả về thông báo thành công bình thường
+            // 3. NẾU LÀ TIỀN MẶT / MOMO -> Xong luôn -> IN HÓA ĐƠN NGẦM TẠI BACKEND
+            final HoaDon finalHd = savedHd;
+            new Thread(() -> {
+                try {
+                    // Chờ 1 giây để đảm bảo Transaction của database đã commit hoàn toàn dữ liệu
+                    Thread.sleep(1000); 
+
+                    java.io.File targetDir = new java.io.File("C:/POS_pdf");
+                    if (!targetDir.exists()) {
+                        targetDir.mkdirs();
+                    }
+                    java.io.File saveFile = new java.io.File(targetDir, "HoaDon_" + orderId + ".pdf");
+                    
+                    // Giả lập Mock HttpServletResponse để tận dụng lại PdfService4HoaDon
+                    jakarta.servlet.http.HttpServletResponse mockResponse = (jakarta.servlet.http.HttpServletResponse) 
+                        java.lang.reflect.Proxy.newProxyInstance(
+                            jakarta.servlet.http.HttpServletResponse.class.getClassLoader(),
+                            new Class<?>[]{jakarta.servlet.http.HttpServletResponse.class},
+                            (proxy, method, methodArgs) -> {
+                                if ("getOutputStream".equals(method.getName())) {
+                                    return new jakarta.servlet.ServletOutputStream() {
+                                        private final java.io.FileOutputStream fos = new java.io.FileOutputStream(saveFile);
+                                        @Override public boolean isReady() { return true; }
+                                        @Override public void setWriteListener(jakarta.servlet.WriteListener writeListener) {}
+                                        @Override public void write(int b) throws java.io.IOException { fos.write(b); }
+                                        @Override public void write(byte[] b, int off, int len) throws java.io.IOException { fos.write(b, off, len); }
+                                        @Override public void close() throws java.io.IOException { fos.close(); super.close(); }
+                                    };
+                                }
+                                return null;
+                            }
+                        );
+
+                    // Gọi tầng nghiệp vụ ghi tệp tin trực tiếp xuống ổ cứng
+                    pdfService4HoaDon.exportReceipt(mockResponse, finalHd);
+                    System.out.println("✅ Backend tự động in hóa đơn thành công tại: " + saveFile.getAbsolutePath());
+                    
+                    // Mở file trực tiếp lên màn hình Desktop của máy POS
+                    if (java.awt.Desktop.isDesktopSupported()) {
+                        java.awt.Desktop.getDesktop().open(saveFile);
+                    }
+                } catch (Exception e) {
+                    System.err.println("❌ Lỗi luồng in hóa đơn ngầm tại Backend: " + e.getMessage());
+                }
+            }).start();
+
+            // 4. Trả kết quả thành công cho Frontend
             return ResponseEntity.ok(Map.of("message", "Thanh toán " + req.getPhuongThucThanhToan() + " thành công!"));
             
         } catch (Exception e) {
@@ -162,8 +208,6 @@ public class CheckoutController {
     @GetMapping(value = "/export-pdf/{id}", produces = "application/pdf")
     public void exportReceiptPDF(HttpServletResponse response, @PathVariable String id) throws IOException {
         
-        // Đảm bảo xóa bộ đệm cũ để tránh xung đột dữ liệu dòng
-        response.reset(); 
         
         response.setContentType("application/pdf");
         response.setHeader("Content-Disposition", "attachment; filename=HoaDon_" + id + ".pdf");
@@ -176,8 +220,6 @@ public class CheckoutController {
             // Tiến hành ghi file xuất trực tiếp ra luồng Output của Response
             pdfService4HoaDon.exportReceipt(response, hd);
             
-            // Ép luồng xả hết dữ liệu xuống mạng, tránh kẹt dữ liệu gây file trống
-            response.getOutputStream().flush(); 
         }
     }
 

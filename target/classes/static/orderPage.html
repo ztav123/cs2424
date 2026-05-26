@@ -397,7 +397,6 @@
                     <button id="modalCancelBtn" class="modal-btn modal-btn-cancel">Bỏ qua (Khách lẻ)</button>
                     <button id="modalSearchBtn" class="modal-btn modal-btn-search">Tìm kiếm</button>
                 </div>
-                //Thêm khu vực hiển thị kết quả tìm kiếm
                 <div id="resultArea" class="result-area">
                                 <h3>Thông tin tài khoản</h3>
                                 <div class="info-row"><span class="label">SĐT:</span> <span class="value" id="displayPhone"></span></div>
@@ -582,18 +581,24 @@
             
             products.forEach(p => {
                 const tonKhoHienTai = p.tonkho || 0; 
+                
+                // Lấy dữ liệu từ trường imageurl mới, nếu trống thì fallback về logo
+                let imgSrc = p.imageurl && p.imageurl !== "" ? p.imageurl : '/img/logo.png';
+                
+                // Đồng bộ vào productDatabase
                 productDatabase[p.id] = { 
-                    id: p.id, name: p.ten, price: p.giaban, 
-                    image: p.imageUrl || '.\\img\\logo.png',
-                    category: p.category || 'Khác', tonkho: tonKhoHienTai
+                    id: p.id, 
+                    name: p.ten, 
+                    price: p.giaban, 
+                    image: imgSrc,
+                    category: p.category || 'Khác', 
+                    tonkho: tonKhoHienTai
                 };
                 
                 const card = document.createElement('div');
                 card.className = 'product-card';
                 card.dataset.id = p.id;
                 card.dataset.category = p.category ? p.category.toLowerCase() : 'khác';
-                
-                let imgSrc = p.imageUrl && p.imageUrl !== "" ? p.imageUrl : '.\\img\\logo.png';
                 
                 card.innerHTML = `
                     <div class="product-img-container"><img src="${imgSrc}" alt="${p.ten}"></div>
@@ -603,10 +608,10 @@
                         Kho: ${tonKhoHienTai}
                     </div>
                 `;
+                
                 if(tonKhoHienTai <= 0) {
                     card.style.opacity = '0.36';
                     card.style.cursor = 'not-allowed';
-                    
                 }
                 productGrid.appendChild(card);
             });
@@ -943,12 +948,14 @@
                     const token = sessionStorage.getItem('accessToken');
                     window.location.href = data.url;
                 } else {
+                     
                     alert(data.message);
                     paymentModal.style.display = 'none';
                     clearCart();
                     loadProducts(); 
+                    downloadPdf(orderData.id);
                 }
-                downloadPdf(orderData.id); 
+                
             } else {
                 alert(data.error || "Lỗi thanh toán!");
                 window.location.href = 'orderPage.html';
@@ -964,39 +971,8 @@
             alert("Phiên đăng nhập không hợp lệ!");
             return;
         }
-
-        if (window.app) {
             window.app.downloadPdf(`http://localhost:8080/api/checkout/export-pdf/${id}`, token, `HoaDon_${id}.pdf`); 
-        } else {
-            // ==========================================
-            // 2. DÀNH CHO TRÌNH DUYỆT WEB
-            // ==========================================
-            try {
-                const response = await fetch(`http://localhost:8080/api/checkout/export-pdf/${id}`, {
-                    method: 'GET',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (!response.ok) {
-                    alert("Lỗi tải file! Vui lòng kiểm tra quyền hoặc ID ca làm.");
-                    return;
-                }
-
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = `HoaDon_${id}.pdf`; 
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                a.remove();
-            } catch (error) {
-                console.error("Lỗi khi tải file PDF:", error);
-                alert("Lỗi kết nối khi xuất PDF!");
-            }
-        }
+        
     }
 </script>
 </body>

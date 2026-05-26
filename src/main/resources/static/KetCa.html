@@ -288,7 +288,8 @@
                 dbData.sort((a, b) => a.id - b.id);
 
                 // 2. TÁCH BẠCH CA ĐANG MỞ VÀ CA ĐÃ ĐÓNG
-                const activeShift = dbData.find(l => l.ketthuc === null); // Ca hiện tại đang làm
+                // Thêm điều kiện kiểm tra nhanVien.id trùng khớp với nhân viên hiện tại
+                const activeShift = dbData.find(l => l.ketthuc === null && l.nhanVien && l.nhanVien.id === currentNhanVienId);
                 const finishedLogs = dbData.filter(l => l.ketthuc !== null); // Các ca đã chốt trong quá khứ
 
                 // 3. TÍNH TIỀN HỆ THỐNG (CẦN NỘP) CHO CA HIỆN TẠI
@@ -300,11 +301,14 @@
                     document.getElementById('expected-total').innerText = formatmoney(canNop) + " đ";
                 }
 
-                // 4. TIÊM BẢN NHÁP ẢO (Vào mảng render)
+                // 4. XỬ LÝ MẢNG HIỂN THỊ (GỘP CẢ CA ĐÃ ĐÓNG VÀ CA ĐANG MỞ)
+                let renderLogs = [...finishedLogs]; 
                 const pendingPayloadStr = sessionStorage.getItem('pendingShiftPayload');
+                
                 if (pendingPayloadStr && activeShift) {
+                    // Nếu đã bấm "In bảng kê", hiển thị bản nháp chờ xác minh
                     const fakeLog = JSON.parse(pendingPayloadStr);
-                    finishedLogs.push({
+                    renderLogs.push({
                         id: 'BẢN NHÁP', 
                         batdau: activeShift.batdau,
                         nhanVien: { hoten: sessionStorage.getItem('currentNhanVienName') || sessionStorage.getItem('currentQuanLyName') || "N/A" },
@@ -312,30 +316,56 @@
                         tongDoanhthu: activeShift.tongDoanhthu,
                         tienNganhang: activeShift.tienNganhang,
                         tienMat: activeShift.tienMat,
-                        tienmatKetca: fakeLog.tienmat, // Tiền thực đếm ở Frontend
+                        tienmatKetca: fakeLog.tienmat, 
                         isFake: true 
+                    });
+                } else if (activeShift) {
+                    // Nếu ca vẫn đang diễn ra bình thường, push trực tiếp vào mảng hiển thị
+                    renderLogs.push({
+                        ...activeShift,
+                        isActive: true // Đánh dấu đây là ca đang mở để xử lý giao diện
                     });
                 }
 
-                // 5. ĐỔ DỮ LIỆU RA GIAO DIỆN (Chỉ render mảng finishedLogs)
-                finishedLogs.forEach((log, index) => {
+                // 5. ĐỔ DỮ LIỆU RA GIAO DIỆN
+                renderLogs.forEach((log, index) => {
                     const dateObj = new Date(log.batdau);
                     const dateStr = dateObj.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
-                    
-                    // SỬA LỖI TÍNH TIỀN CHÍ MẠNG Ở ĐÂY:
-                    // - Tiền thực tế: Nếu là bản nháp thì lấy từ session, nếu là ca cũ thì lấy từ DB (tienmatKetca)
-                    const thucTe = log.isFake ? (parseInt(sessionStorage.getItem('grand-total')) || 0) : (parseInt(log.tienmatKetca) || 0);
                     
                     const tienmatBandau = parseInt(log.tienmatBandau) || 0;
                     const heThong = parseInt(log.tongDoanhthu) || 0;
                     const tienNganhang = parseInt(log.tienNganhang) || 0;
-                    
-                    // Tính tiền mặt thu được trong ca (Cột tien_mat)
                     const tienMatThuTrongCa = log.tienMat !== undefined ? parseInt(log.tienMat) : (heThong - tienNganhang);
                     const canNop = tienmatBandau + tienMatThuTrongCa;
                     
-                    const chenhLech = thucTe - canNop;
-                    const deviationStyle = chenhLech < 0 ? "color:red; font-weight:bold;" : "color:#1a9e2a; font-weight:bold;";
+                    // Khai báo các biến hiển thị linh hoạt
+                    let thucTeText, chenhLechText, deviationStyle, headerActionHtml;
+
+                    if (log.isFake) {
+                        // Trường hợp 1: Bản nháp ảo
+                        const thucTe = parseInt(sessionStorage.getItem('grand-total')) || 0;
+                        const chenhLech = thucTe - canNop;
+                        thucTeText = formatmoney(thucTe) + " VNĐ";
+                        chenhLechText = formatmoney(chenhLech) + " VNĐ";
+                        deviationStyle = chenhLech < 0 ? "color:red; font-weight:bold;" : "color:#1a9e2a; font-weight:bold;";
+                        headerActionHtml = `<span style="color:#d9534f; font-weight:bold; font-size:12px;">(Chờ xác minh...)</span>`;
+                        
+                    } else if (log.isActive) {
+                        // Trường hợp 2: Ca ĐANG DIỄN RA (Chưa chốt tiền)
+                        thucTeText = "<span style='color:#777; font-style:italic;'>Đang mở ca...</span>";
+                        chenhLechText = "<span style='color:#777; font-style:italic;'>Chưa chốt</span>";
+                        deviationStyle = ""; // Không tô màu
+                        headerActionHtml = `<span style="color:#e67e22; font-weight:bold; font-size:12px;">(Đang diễn ra)</span>`;
+                        
+                    } else {
+                        // Trường hợp 3: Ca CŨ ĐÃ ĐÓNG (Bình thường)
+                        const thucTe = parseInt(log.tienmatKetca) || 0;
+                        const chenhLech = thucTe - canNop;
+                        thucTeText = formatmoney(thucTe) + " VNĐ";
+                        chenhLechText = formatmoney(chenhLech) + " VNĐ";
+                        deviationStyle = chenhLech < 0 ? "color:red; font-weight:bold;" : "color:#1a9e2a; font-weight:bold;";
+                        headerActionHtml = `<button onclick="downloadPdf('${log.id}')" style="background:#0b5aa6; color:white; border:none; border-radius:4px; padding:5px 12px; cursor:pointer; font-weight:bold; font-size:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Xuất PDF</button>`;
+                    }
 
                     const item = document.createElement("div");
                     item.className = "log-item";
@@ -345,10 +375,7 @@
                         <div class="log-content">
                            <div class="log-header" style="display:flex; justify-content:space-between; align-items:center;">
                                <span>${dateStr}</span>
-                               ${log.isFake 
-                                 ? `<span style="color:#d9534f; font-weight:bold; font-size:12px;">(Chờ xác minh...)</span>` 
-                                 : `<button onclick="downloadPdf('${log.id}')" style="background:#0b5aa6; color:white; border:none; border-radius:4px; padding:5px 12px; cursor:pointer; font-weight:bold; font-size:12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">Xuất PDF</button>`
-                               }
+                               ${headerActionHtml}
                            </div>
                            <div class="log-name">${log.nhanVien.hoten}</div>
                            <div class="log-detail">
@@ -357,8 +384,8 @@
                               <span style="color:#0b5aa6">- Tiền mặt trong ca: ${formatmoney(tienMatThuTrongCa)} VNĐ</span>
                               <span style="color:#0b5aa6">+ Đầu ca có sẵn: ${formatmoney(tienmatBandau)} VNĐ</span>
                               <span style="color:#e67e22; font-weight:bold; margin-top:5px;">=> CẦN NỘP VỀ: ${formatmoney(canNop)} VNĐ</span>
-                              <span style="color:#1a9e2a; margin-top:5px;">Thực tế tiền mặt đếm được: ${formatmoney(thucTe)} VNĐ</span>
-                              <span style="${deviationStyle}">Chênh lệch: ${formatmoney(chenhLech)} VNĐ</span>
+                              <span style="color:#1a9e2a; margin-top:5px;">Thực tế tiền mặt đếm được: ${thucTeText}</span>
+                              <span style="${deviationStyle}">Chênh lệch: ${chenhLechText}</span>
                            </div>
                         </div>
                     `;
