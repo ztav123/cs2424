@@ -487,6 +487,30 @@
     let currentCartTotal = 0;
     let currentCustomerSdt = null;
 
+    // Lắng nghe sự kiện thay đổi dữ liệu trong ô input
+    searchInput.addEventListener('input', (e) => {
+        const currentValue = searchInput.value;
+        
+        // Kiểm tra xem ký tự cuối cùng có phải là dấu \ hay không
+        if (currentValue.endsWith('\\')) { 
+            e.preventDefault();
+            
+            // Cắt bỏ dấu \ ở cuối để lấy mã vạch sạch (Ví dụ: "102\" -> "102")
+            const barcodeValue = currentValue.slice(0, -1).trim();
+            
+            if (barcodeValue) {
+                console.log("Tìm thấy tín hiệu kích hoạt quét mã vạch:", barcodeValue);
+                
+                // Gọi hàm xử lý hóa đơn của bạn
+                addToInvoice(barcodeValue);
+                
+                // Xóa sạch ô nhập liệu để chờ lần quét tiếp theo
+                searchInput.value = '';
+                searchInput.dispatchEvent(new Event('input'));
+            }
+        }
+    });
+
     // =========================================================================
     // 2. KHỞI ĐỘNG HỆ THỐNG KHI LOAD TRANG
     // =========================================================================

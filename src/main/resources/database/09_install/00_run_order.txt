@@ -1,0 +1,26 @@
+THU TU CHAY FILE - BAN CHUAN THEO DATABASE GOC CUA APP
+
+A. NEU MUON TAO LAI DATABASE TU DAU CHO APP
+1. Chay: database/01_schema_seed/01_schema_chuan_theo_app.sql
+2. Chay: database/01_schema_seed/02_data_chuan_theo_app.sql
+
+B. NEU APP DA CO DATABASE VA CHI MUON BO SUNG PHAN DBMS BAO CAO
+1. Chay: database/02_constraints/01_constraints_bo_sung_khong_doi_schema.sql
+2. Chay: database/03_triggers/01_triggers_dbms_chuan_theo_app.sql
+3. Chay: database/04_plsql_business/01_functions_chuan_theo_app.sql
+4. Chay: database/04_plsql_business/02_procedures_chuan_theo_app.sql
+5. Chay: database/04_plsql_business/03_cursor_reports_chuan_theo_app.sql
+6. Chay: database/06_recovery/01_recovery_audit_log_mo_phong.sql
+7. Chay: database/07_performance/01_indexes_theo_schema_goc.sql
+
+C. KHI DEMO CHO THAY
+1. Chay app Java POS.
+2. Thao tac nghiep vu tren app.
+3. Mo Oracle DB.
+4. Chay SELECT trong database/08_app_observation_queries/01_select_sau_khi_chay_app.sql
+5. Mo file trigger/procedure/function/cursor de giai thich co che RDBMS.
+
+D. LUU Y
+- Folder nay KHONG them cot moi vao 7 bang goc.
+- Folder nay KHONG them FK moi vao 7 bang goc.
+- AUDIT_LOG va DBMS_RECOVERY_LOG la bang phu tro rieng cho bao cao DBMS.
