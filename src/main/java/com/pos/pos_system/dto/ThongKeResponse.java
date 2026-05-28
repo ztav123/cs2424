@@ -6,94 +6,51 @@ public class ThongKeResponse {
     private Double tongDoanhThu;
     private Long soDonHang;
     private String spBanChayNhat;
-    private List<String> labels; 
-    private List<ChartDataset> datasets; 
+    private List<DailyReport> chiTietNgay; // Danh sách các dòng cho bảng
 
-    // Constructor không tham số (Bắt buộc cho Jackson)
-    public ThongKeResponse() {
-    }
+    public ThongKeResponse() {}
 
-    // Constructor đầy đủ tham số
-    public ThongKeResponse(Double tongDoanhThu, Long soDonHang, String spBanChayNhat, List<String> labels, List<ChartDataset> datasets) {
+    public ThongKeResponse(Double tongDoanhThu, Long soDonHang, String spBanChayNhat, List<DailyReport> chiTietNgay) {
         this.tongDoanhThu = tongDoanhThu;
         this.soDonHang = soDonHang;
         this.spBanChayNhat = spBanChayNhat;
-        this.labels = labels;
-        this.datasets = datasets;
+        this.chiTietNgay = chiTietNgay;
     }
 
-    // ================= GETTER VÀ SETTER =================
+    // Getters and Setters
+    public Double getTongDoanhThu() { return tongDoanhThu; }
+    public void setTongDoanhThu(Double tongDoanhThu) { this.tongDoanhThu = tongDoanhThu; }
+    
+    public Long getSoDonHang() { return soDonHang; }
+    public void setSoDonHang(Long soDonHang) { this.soDonHang = soDonHang; }
+    
+    public String getSpBanChayNhat() { return spBanChayNhat; }
+    public void setSpBanChayNhat(String spBanChayNhat) { this.spBanChayNhat = spBanChayNhat; }
+    
+    public List<DailyReport> getChiTietNgay() { return chiTietNgay; }
+    public void setChiTietNgay(List<DailyReport> chiTietNgay) { this.chiTietNgay = chiTietNgay; }
 
-    public Double getTongDoanhThu() {
-        return tongDoanhThu;
-    }
+    // ================= LỚP NỘI BỘ ĐẠI DIỆN CHO 1 DÒNG TRONG BẢNG =================
+    public static class DailyReport {
+        private String ngay;
+        private Double doanhThu;
+        private String spBanChay;
 
-    public void setTongDoanhThu(Double tongDoanhThu) {
-        this.tongDoanhThu = tongDoanhThu;
-    }
+        public DailyReport() {}
 
-    public Long getSoDonHang() {
-        return soDonHang;
-    }
-
-    public void setSoDonHang(Long soDonHang) {
-        this.soDonHang = soDonHang;
-    }
-
-    public String getSpBanChayNhat() {
-        return spBanChayNhat;
-    }
-
-    public void setSpBanChayNhat(String spBanChayNhat) {
-        this.spBanChayNhat = spBanChayNhat;
-    }
-
-    public List<String> getLabels() {
-        return labels;
-    }
-
-    public void setLabels(List<String> labels) {
-        this.labels = labels;
-    }
-
-    public List<ChartDataset> getDatasets() {
-        return datasets;
-    }
-
-    public void setDatasets(List<ChartDataset> datasets) {
-        this.datasets = datasets;
-    }
-
-    // ================= LỚP NỘI BỘ (INNER CLASS) =================
-    public static class ChartDataset {
-        private String label;
-        private List<Double> data;
-
-        // Constructor không tham số
-        public ChartDataset() {
+        public DailyReport(String ngay, Double doanhThu, String spBanChay) {
+            this.ngay = ngay;
+            this.doanhThu = doanhThu;
+            this.spBanChay = spBanChay;
         }
 
-        // Constructor đầy đủ tham số
-        public ChartDataset(String label, List<Double> data) {
-            this.label = label;
-            this.data = data;
-        }
+        public String getNgay() { return ngay; }
+        public void setNgay(String ngay) { this.ngay = ngay; }
 
-        // Getter và Setter cho Inner Class
-        public String getLabel() {
-            return label;
-        }
+        public Double getDoanhThu() { return doanhThu; }
+        public void setDoanhThu(Double doanhThu) { this.doanhThu = doanhThu; }
 
-        public void setLabel(String label) {
-            this.label = label;
-        }
-
-        public List<Double> getData() {
-            return data;
-        }
-
-        public void setData(List<Double> data) {
-            this.data = data;
-        }
+        public String getSpBanChay() { return spBanChay; }
+        public void setSpBanChay(String spBanChay) { this.spBanChay = spBanChay; }
     }
 }

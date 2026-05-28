@@ -146,26 +146,34 @@
                     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                         <input type="date" id="date-from"> <label>-</label> <input type="date" id="date-to">
                         
-                        <select id="tk-mode-select" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
-                            <option value="STORE">Doanh thu toàn cửa hàng</option>
-                            <option value="ALL_EMP">So sánh tất cả nhân viên</option>
-                        </select>
-
-                        <select id="nv-filter" multiple style="display:none; height: 35px; border-radius: 4px; border: 1px solid #ccc;" title="Giữ Ctrl để chọn nhiều">
+                        <select id="tk-emp-select" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc; min-width: 200px;">
+                            <option value="ALL">Toàn cửa hàng</option>
                             </select>
 
-                        <button class="btn btn-save" onclick="fetchThongKe()">Lọc & Vẽ</button>
+                        <button class="btn btn-save" onclick="fetchThongKe()">Lọc dữ liệu</button>
                     </div>
                     
                     <div class="stats-cards">
-                        <div class="card"><h3>Tổng Doanh Thu</h3><div class="value">0 đ</div></div>
-                        <div class="card"><h3>Số Đơn Hàng</h3><div class="value">0</div></div>
-                        <div class="card"><h3>SP Bán Chạy Nhất</h3><div class="value">N/A</div></div>
+                        <div class="card"><h3>Tổng Doanh Thu Cửa Hàng</h3><div class="value">0 đ</div></div>
+                        <div class="card"><h3>Tổng Số Đơn</h3><div class="value">0</div></div>
+                        <div class="card"><h3>SP Bán Chạy Nhất</h3><div class="value" style="font-size: 1.2rem;">N/A</div></div>
                     </div>
                     
-                    <div class="chart-placeholder" style="padding: 10px; background: white; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; overflow-y: hidden;">
-                        <div id="chart-scroll-container" style="height: 100%; width: 100%; min-width: 800px;">
-                            <canvas id="revenueChart"></canvas>
+                    <div style="flex: 1; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); padding: 15px; display: flex; flex-direction: column; overflow: hidden;">
+                        <h3 style="color: #0b5aa6; margin-bottom: 10px; border-bottom: 2px solid #eee; padding-bottom: 10px; font-size: 1.1rem;">Báo Cáo Chi Tiết Theo Ngày</h3>
+                        <div style="flex: 1; overflow-y: auto;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead style="background-color: #f8f9fa; position: sticky; top: 0; z-index: 10;">
+                                    <tr>
+                                        <th style="padding: 12px; border-bottom: 2px solid #dee2e6; text-align: left; width: 10%;">#</th>
+                                        <th style="padding: 12px; border-bottom: 2px solid #dee2e6; text-align: left; width: 25%;">Ngày</th>
+                                        <th style="padding: 12px; border-bottom: 2px solid #dee2e6; text-align: right; width: 25%;">Doanh Thu</th>
+                                        <th style="padding: 12px; border-bottom: 2px solid #dee2e6; text-align: left; padding-left: 30px; width: 40%;">Sản Phẩm Bán Chạy</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tk-daily-table-body">
+                                    </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -183,6 +191,33 @@
             <div class="modal-actions">
                 <button class="btn btn-cancel" onclick="closeModal()">Hủy</button>
                 <button class="btn btn-save" onclick="saveData()">Lưu thông tin</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="excel-preview-modal" style="z-index: 105;">
+        <div class="modal-content" style="width: 850px; max-width: 95vw;">
+            <div class="modal-header">Xác nhận dữ liệu đồng bộ từ Excel</div>
+            <p style="font-size: 0.9rem; color: #555; margin-bottom: 10px;">
+                <span style="color: #28a745; font-weight: bold;">[Mới]</span>: Tạo sản phẩm mới | <span style="color: #0b5aa6; font-weight: bold;">[ID Tồn tại]</span>: Chỉ được phép điều chỉnh tồn kho
+            </p>
+            <div style="max-height: 50vh; overflow-y: auto; border: 1px solid #ccc; border-radius: 6px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                    <thead style="background: #f8f9fa; position: sticky; top: 0; z-index: 5;">
+                        <tr>
+                            <th style="padding: 8px; border-bottom: 1px solid #ccc; text-align: center;">ID</th>
+                            <th style="padding: 8px; border-bottom: 1px solid #ccc; text-align: left;">Tên Sản Phẩm</th>
+                            <th style="padding: 8px; border-bottom: 1px solid #ccc; text-align: left;">Danh Mục</th>
+                            <th style="padding: 8px; border-bottom: 1px solid #ccc; text-align: right;">Giá Bán</th>
+                            <th style="padding: 8px; border-bottom: 1px solid #ccc; text-align: center;">Tồn Kho (+/-)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="excel-preview-body">
+                        </tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-cancel" onclick="document.getElementById('excel-preview-modal').style.display='none'">Hủy Bỏ</button>
+                <button class="btn btn-save" style="background: #28a745;" onclick="confirmAndSaveExcel()">Tiến Hành Cập Nhật</button>
             </div>
         </div>
     </div>
@@ -557,6 +592,9 @@
 
             colDef['sp'].forEach(col => {
                 if (col === 'id' && !isEdit) return; 
+                // CHỐT CHẶN: Tuyệt đối không cho hiện ô input text "Ngừng bán" ra modal
+                if (col === 'isDeleted') return; 
+
                 const value = isEdit ? focusedRowData[col] : '';
                 
                 if (col === 'tonkho' && isEdit) {
@@ -576,6 +614,7 @@
                 }
             });
 
+            // Chỉ hiển thị Dropdown lựa chọn trạng thái trực quan này khi chọn SỬA
             if (isEdit) {
                 const currentStatus = (focusedRowData && focusedRowData.isDeleted !== undefined) ? focusedRowData.isDeleted : 0;
                 formBody.innerHTML += `
@@ -651,101 +690,123 @@
     async function saveData() {
         const isEdit = focusedRowData !== null;
 
-        // --- XỬ LÝ LƯU HÓA ĐƠN ---
+        // --- 1. XỬ LÝ LƯU TRẠNG THÁI HÓA ĐƠN ---
         if (currentTab === 'hd') {
             const selectStatus = document.getElementById('update-hd-trangthai').value;
             const invoiceId = focusedRowData.id;
-            
             try {
                 const res = await fetch(`${API_BASE}/checkout/update-status/${invoiceId}?status=${selectStatus}`, {
                     method: 'PUT', headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
-                if (res.status === 403 || res.status === 401) { alert("Hết hạn đăng nhập!"); return; }
                 if (res.ok) {
                     alert('Cập nhật trạng thái hóa đơn thành công!');
                     closeModal(); loadAndRenderTable(); 
-                } else { alert('Cập nhật thất bại, mã lỗi: ' + res.status); }
+                } else { alert('Cập nhật thất bại!'); }
             } catch (err) { alert('Lỗi mạng!'); }
             return; 
         }
 
-        // --- XỬ LÝ LƯU SẢN PHẨM (EDIT): TÁCH LUỒNG LỊCH SỬ KHO ---
-        if (currentTab === 'sp' && isEdit) {
-            const soLuongBienDong = parseInt(document.getElementById('input-bien-dong-kho').value) || 0;
-            const quanlyId = sessionStorage.getItem('currentQuanLyId');
-            
-            try {
-                // ĐÃ SỬA: Thu thập chính xác giá trị từ Dropdown input-is_deleted
+        // --- 2. XỬ LÝ SẢN PHẨM (CHỈ CHẤP NHẬN PUT KHI EDIT, CHẶN ĐỨNG LỖI METHOD POST) ---
+        // --- 2. XỬ LÝ SẢN PHẨM ---
+        if (currentTab === 'sp') {
+            if (isEdit) {
+                // LUỒNG SỬA SẢN PHẨM (PUT)
+                const soLuongBienDong = parseInt(document.getElementById('input-bien-dong-kho').value) || 0;
+                const quanlyId = sessionStorage.getItem('currentQuanLyId');
                 const selectIsDeleted = document.getElementById('input-is_deleted') ? parseInt(document.getElementById('input-is_deleted').value) : 0;
 
                 const spPayload = {
-                    ten: document.getElementById('input-ten').value,
-                    category: document.getElementById('input-category').value,
+                    ten: document.getElementById('input-ten').value.trim(),
+                    category: document.getElementById('input-category').value.trim(),
                     giaban: document.getElementById('input-giaban').value,
-                    tonkho: focusedRowData.tonkho,
-                    is_deleted: selectIsDeleted // Ráp biến vào payload gửi lên API
+                    is_deleted: selectIsDeleted
                 };
-                
-                await fetch(`${API_BASE}/sanpham/${focusedRowData.id}`, {
-                    method: 'PUT', 
-                    headers: { 'Content-Type': 'application/json' , 'Authorization': `Bearer ${token}`}, 
-                    body: JSON.stringify(spPayload)
-                });
 
-                if (soLuongBienDong !== 0) {
-                    const lskPayload = {
-                        sanphamId: focusedRowData.id,
-                        soLuong: soLuongBienDong,
-                        nguoiThucHien: quanlyId
-                    };
-                    await fetch(`${API_BASE}/lichsukho/dieu-chinh`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' , 'Authorization': `Bearer ${token}`}, body: JSON.stringify(lskPayload) 
-                    });
+                if (!spPayload.ten || !spPayload.category || !spPayload.giaban) {
+                    alert("Vui lòng điền đầy đủ thông tin sản phẩm!");
+                    return;
                 }
+
+                try {
+                    // Bước 1: Gọi PUT để cập nhật thông tin cơ bản (Không cập nhật tồn kho)
+                    const res = await fetch(`${API_BASE}/sanpham/${focusedRowData.id}`, {
+                        method: 'PUT', 
+                        headers: { 'Content-Type': 'application/json' , 'Authorization': `Bearer ${token}`}, 
+                        body: JSON.stringify(spPayload)
+                    });
+
+                    // Bước 2: Nếu có nhập biến động kho, gọi POST vào Lịch Sử Kho để Trigger lo
+                    if (res.ok && soLuongBienDong !== 0) {
+                        const lskPayload = { sanphamId: focusedRowData.id, soLuong: soLuongBienDong, nguoiThucHien: quanlyId };
+                        await fetch(`${API_BASE}/lichsukho/dieu-chinh`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' , 'Authorization': `Bearer ${token}`}, body: JSON.stringify(lskPayload) 
+                        });
+                    }
+                    alert('Cập nhật Sản phẩm thành công!'); 
+                    closeModal(); loadAndRenderTable(); 
+                } catch (err) { alert('Lỗi kết nối mạng!'); }
                 
-                alert('Cập nhật Sản phẩm thành công!'); 
-                closeModal(); loadAndRenderTable(); 
-            } catch (err) { alert('Lỗi kết nối mạng!'); }
+            } else {
+                // LUỒNG TẠO MỚI SẢN PHẨM (POST)
+                const spPayload = {
+                    ten: document.getElementById('input-ten').value.trim(),
+                    category: document.getElementById('input-category').value.trim(),
+                    giaban: document.getElementById('input-giaban').value,
+                    tonkho: document.getElementById('input-tonkho').value || 0
+                };
+
+                if (!spPayload.ten || !spPayload.category || !spPayload.giaban) {
+                    alert("Vui lòng điền đầy đủ Tên, Danh mục và Giá bán!");
+                    return;
+                }
+
+                try {
+                    const res = await fetch(`${API_BASE}/sanpham`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify(spPayload)
+                    });
+
+                    if (res.ok) {
+                        alert('Thêm sản phẩm mới thành công!');
+                        closeModal(); loadAndRenderTable();
+                    } else {
+                        alert('Thêm sản phẩm thất bại!');
+                    }
+                } catch (err) {
+                    alert('Lỗi kết nối mạng!');
+                }
+            }
             return; 
         }
-
-        // --- XỬ LÝ TẠO MỚI SẢN PHẨM VÀ THAO TÁC TRÊN NHÂN VIÊN ---
+        // --- 3. XỬ LÝ CHO NHÂN VIÊN ---
         let payload = {}; 
-        let hasEmptyField = false; // Cờ kiểm tra ô trống
+        let hasEmptyField = false;
         
         colDef[currentTab].forEach(col => {
+            if (col === 'isDeleted') return; // Không quét ô đã ẩn
             const input = document.getElementById(`input-${col}`);
             if(input && !input.disabled) {
                 const val = input.value.trim();
-                if (val === '') hasEmptyField = true; // Phát hiện có ô bỏ trống
+                if (val === '') hasEmptyField = true;
                 payload[col] = val;
             }
         });
 
-        // 1. CHỐT CHẶN: Không cho phép bất kỳ Textbox nào để trống
         if (hasEmptyField) {
-            alert("Vui lòng điền đầy đủ tất cả thông tin, không được để trống!");
+            alert("Vui lòng điền đầy đủ tất cả thông tin!");
             return;
         }
 
-        // 2. CHỐT CHẶN DÀNH RIÊNG CHO NHÂN VIÊN
         if (currentTab === 'nv') {
-            // Kiểm tra SĐT phải đúng 10 chữ số
             const phoneRegex = /^\d{10}$/;
-            if (!phoneRegex.test(payload['sdt'])) {
-                alert("Số điện thoại không hợp lệ! Yêu cầu nhập đúng 10 chữ số.");
-                return;
-            }
-
-            // Xử lý logic Mật khẩu nếu là Thêm mới
+            if (!phoneRegex.test(payload['sdt'])) { alert("Số điện thoại không hợp lệ (yêu cầu 10 số)!"); return; }
             if (!isEdit) {
                 const mkInput = document.getElementById('input-mkdangnhap').value.trim();
                 payload.mkdangnhap = mkInput !== '' ? mkInput : "123456";
             }
         }
 
-        // 3. GỌI API LƯU XUỐNG BACKEND
         const endpoint = API_BASE + apiEndpoints[currentTab] + (isEdit ? `/${focusedRowData.id}` : '');
         try {
             const res = await fetch(endpoint, { 
@@ -753,47 +814,140 @@
                 headers: { 'Content-Type': 'application/json' , 'Authorization': `Bearer ${token}`}, 
                 body: JSON.stringify(payload) 
             });
-            
-            if (res.status === 403 || res.status === 401) { alert("Hết hạn đăng nhập!"); return; }
             if (res.ok) { alert('Lưu thành công!'); closeModal(); loadAndRenderTable(); } 
-            else { alert('Có lỗi xảy ra: Không thể lưu dữ liệu!'); }
+            else { alert('Có lỗi xảy ra khi lưu dữ liệu!'); }
         } catch (err) { alert('Lỗi kết nối mạng!'); }
     }
-
     // =====================================================================
     // 3. HÀM ĐẨY FILE EXCEL XUỐNG BACKEND
     // =====================================================================
+    // =====================================================================
+    // 3. HÀM UPLOAD VÀ XỬ LÝ ĐỒNG BỘ TUẦN TỰ EXCEL
+    // =====================================================================
+    let excelPreviewData = []; // Biến toàn cục lưu nháp danh sách Excel
+
     async function handleExcelUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         const formBody = document.getElementById('modal-form-body');
-        formBody.innerHTML = '<p style="text-align:center; color:#0b5aa6; font-weight:bold;">Đang tải và đồng bộ File Excel lên hệ thống. Vui lòng chờ...</p>';
+        const oldContent = formBody.innerHTML;
+        formBody.innerHTML = '<p style="text-align:center; color:#0b5aa6; font-weight:bold;">Đang đọc file Excel...</p>';
 
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("quanlyId", sessionStorage.getItem('currentQuanLyId'));
 
         try {
-            const res = await fetch(`${API_BASE}/lichsukho/upload-excel`, {
+            // Bước 1: Fetch lên server để phân tích ID và trả về dữ liệu nháp
+            const res = await fetch(`${API_BASE}/lichsukho/preview-excel`, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }, // Không set Content-Type để trình duyệt tự nhận diện FormData (Multipart)
+                headers: { 'Authorization': `Bearer ${token}` },
                 body: formData
             });
             
-            const data = await res.json();
             if (res.ok) {
-                alert(data.message);
-                closeModal(); loadAndRenderTable();
+                excelPreviewData = await res.json();
+                
+                // Vẽ Table Preview
+                const tbody = document.getElementById('excel-preview-body');
+                tbody.innerHTML = '';
+                
+                excelPreviewData.forEach((row, idx) => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid #eee';
+
+                    if (row.isNew) {
+                        tr.innerHTML = `
+                            <td style="padding: 6px; text-align: center;"><span style="background:#28a745; color:white; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; font-weight:bold;">Mới</span></td>
+                            <td style="padding: 6px;"><input type="text" id="exc-ten-${idx}" value="${row.ten}" style="width: 100%; padding: 4px;"></td>
+                            <td style="padding: 6px;"><input type="text" id="exc-cat-${idx}" value="${row.category}" style="width: 100%; padding: 4px;"></td>
+                            <td style="padding: 6px;"><input type="number" id="exc-gia-${idx}" value="${row.giaban}" style="width: 100px; padding: 4px; text-align: right;"></td>
+                            <td style="padding: 6px;"><input type="number" id="exc-kho-${idx}" value="${row.tonkho}" style="width: 80px; padding: 4px; text-align: center;"></td>
+                        `;
+                    } else {
+                        tr.innerHTML = `
+                            <td style="padding: 6px; text-align: center; font-weight: bold; color: #0b5aa6;">${row.id}</td>
+                            <td style="padding: 6px;"><input type="text" value="${row.ten}" style="width: 100%; padding: 4px; background: #e9ecef;" disabled></td>
+                            <td style="padding: 6px;"><input type="text" value="${row.category}" style="width: 100%; padding: 4px; background: #e9ecef;" disabled></td>
+                            <td style="padding: 6px;"><input type="number" value="${row.giaban}" style="width: 100px; padding: 4px; background: #e9ecef; text-align: right;" disabled></td>
+                            <td style="padding: 6px;"><input type="number" id="exc-kho-${idx}" value="${row.tonkho}" style="width: 80px; padding: 4px; text-align: center;" placeholder="+/-"></td>
+                        `;
+                    }
+                    tbody.appendChild(tr);
+                });
+
+                closeModal(); // Đóng form modal hiện tại
+                document.getElementById('excel-preview-modal').style.display = 'flex'; // Mở modal Excel
             } else {
+                const data = await res.json();
                 alert("Lỗi Excel: " + data.error);
-                closeModal();
+                formBody.innerHTML = oldContent; // Phục hồi giao diện
             }
         } catch (err) {
-            alert("Lỗi mạng khi upload Excel!");
+            alert("Lỗi mạng khi đọc Excel!");
+            formBody.innerHTML = oldContent;
         } finally {
-            event.target.value = ''; // Reset input
+            event.target.value = ''; // Reset input file để có thể chọn lại chính file đó
         }
+    }
+
+    // Bước 2: Vòng lặp tuần tự Fetch API khi nhấn Lưu
+    async function confirmAndSaveExcel() {
+        const btnSave = document.querySelector('#excel-preview-modal .btn-save');
+        btnSave.innerText = "Đang xử lý...";
+        btnSave.disabled = true;
+
+        let countNew = 0;
+        let countUpdate = 0;
+        const quanlyId = sessionStorage.getItem('currentQuanLyId');
+
+        // Bắn API tuần tự từng dòng
+        for (let i = 0; i < excelPreviewData.length; i++) {
+            const row = excelPreviewData[i];
+            const stockVal = parseInt(document.getElementById(`exc-kho-${i}`).value) || 0;
+
+            if (row.isNew) {
+                // SẢN PHẨM MỚI -> Gọi POST tạo mới
+                const tenVal = document.getElementById(`exc-ten-${i}`).value.trim();
+                const catVal = document.getElementById(`exc-cat-${i}`).value.trim();
+                const giaVal = parseInt(document.getElementById(`exc-gia-${i}`).value) || 0;
+
+                if (!tenVal || !catVal) continue; // Bỏ qua dòng thiếu thông tin
+
+                const payload = { ten: tenVal, category: catVal, giaban: giaVal, tonkho: stockVal };
+                try {
+                    const res = await fetch(`${API_BASE}/sanpham`, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, 
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) countNew++;
+                } catch(e) { console.error("Lỗi tạo mới SP:", e); }
+                
+            } else {
+                // SẢN PHẨM CŨ (ID đã tồn tại) -> Gọi POST vào Lịch Sử Kho
+                if (stockVal === 0) continue; // Không nhập biến động thì bỏ qua
+                
+                const payload = { sanphamId: row.id, soLuong: stockVal, nguoiThucHien: quanlyId };
+                try {
+                    const res = await fetch(`${API_BASE}/lichsukho/dieu-chinh`, { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, 
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) countUpdate++;
+                } catch(e) { console.error("Lỗi cập nhật kho:", e); }
+            }
+        }
+
+        alert(`Đồng bộ hoàn tất!\n- Thêm thành công: ${countNew} sản phẩm mới\n- Điều chỉnh kho: ${countUpdate} sản phẩm cũ`);
+        
+        btnSave.innerText = "Tiến Hành Cập Nhật";
+        btnSave.disabled = false;
+        document.getElementById('excel-preview-modal').style.display = 'none';
+        
+        // Tải lại bảng Sản Phẩm
+        loadAndRenderTable();
     }
 
 // --- 5. LOGIC THỐNG KÊ & BIỂU ĐỒ (BẢN ĐẶC CHẾ CHO JAVAFX) ---
@@ -805,11 +959,6 @@
     const formatMoney = (amount) => {
         if (amount === null || amount === undefined || isNaN(amount)) return "0";
         return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    };
-
-    // Xử lý ẩn hiện Multi-Select Nhân viên
-    document.getElementById('tk-mode-select').onchange = function() {
-        document.getElementById('nv-filter').style.display = this.value === 'ALL_EMP' ? 'inline-block' : 'none';
     };
 
     function renderChart(labels, datasets) {
@@ -872,16 +1021,31 @@
         });
     }
 
+    // --- Cập nhật Dropdown Nhân Viên ---
+    async function loadNhanVienFilter() {
+        const select = document.getElementById('tk-emp-select');
+        if (select.options.length > 1) return; // Tránh load lại nhiều lần
+        try {
+            const res = await fetch(`${API_BASE}/nhanvien`, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const nvs = await res.json();
+            nvs.forEach(nv => {
+                let opt = document.createElement('option');
+                opt.value = nv.id; opt.textContent = nv.hoten;
+                select.appendChild(opt);
+            });
+        } catch (e) { console.error("Lỗi tải danh sách nhân viên"); }
+    }
+
+    // --- Cập nhật API và Đổ Table Báo Cáo ---
     async function fetchThongKe() {
         let dateFrom = document.getElementById('date-from').value;
         let dateTo = document.getElementById('date-to').value;
-        const mode = document.getElementById('tk-mode-select').value;
+        const empId = document.getElementById('tk-emp-select').value;
         
-        // Lấy danh sách ID nhân viên đã quét khối chọn
-        const nvSelect = document.getElementById('nv-filter');
-        const selectedEmpIds = Array.from(nvSelect.selectedOptions).map(opt => opt.value).join(',');
-
-        // ĐÃ SỬA: Hàm "chuẩn hóa" ngày tháng từ Flatpickr (DD/MM/YYYY) sang chuẩn API (YYYY-MM-DD)
+        // Chuẩn hóa ngày tháng
         const normalizeDate = (dateStr) => {
             if (!dateStr) return null;
             if (dateStr.includes('/')) { 
@@ -894,7 +1058,6 @@
         let parsedFrom = normalizeDate(dateFrom);
         let parsedTo = normalizeDate(dateTo);
 
-        // Mặc định lùi 7 ngày nếu không chọn ngày
         if (!parsedTo) parsedTo = new Date().toISOString().split('T')[0];
         if (!parsedFrom) {
             let d = new Date(parsedTo);
@@ -905,53 +1068,54 @@
         const startStr = `${parsedFrom}T00:00:00`;
         const endStr = `${parsedTo}T23:59:59`;
 
-        let url = `${API_BASE}/thongke/doanhthu?from=${startStr}&to=${endStr}&mode=${mode}`;
-        if (mode === 'ALL_EMP' && selectedEmpIds !== '') {
-            url += `&empIds=${selectedEmpIds}`;
-        }
+        let url = `${API_BASE}/thongke/doanhthu?from=${startStr}&to=${endStr}&empIdStr=${empId}`;
 
         try {
-            // Hiển thị trạng thái đang tính toán cho Quản lý
             document.querySelectorAll('.card .value')[0].textContent = "Đang tính...";
             
             const res = await fetch(url, { method: 'GET', headers: { 'Authorization': `Bearer ${token}` } });
-            if (!res.ok) throw new Error("Lỗi API");
+            if (!res.ok) throw new Error("Lỗi API Thống kê");
             const data = await res.json();
 
-            // Gắn dữ liệu an toàn
-            document.querySelectorAll('.card .value')[0].textContent = tmFormatMoney(data.tongDoanhThu) + ' đ';
+            // 1. Cập nhật 3 Thẻ Card Tổng (Format bằng hàm an toàn JavaFX)
+            document.querySelectorAll('.card .value')[0].textContent = formatMoney(data.tongDoanhThu) + ' đ';
             document.querySelectorAll('.card .value')[1].textContent = data.soDonHang || 0;
-            document.querySelectorAll('.card .value')[2].textContent = data.spBanChayNhat || "N/A";
+            document.querySelectorAll('.card .value')[2].textContent = data.spBanChayNhat || "Chưa có";
 
-            // Vẽ biểu đồ
-            renderChart(data.labels, data.datasets);
+            // 2. Cập nhật Bảng Dữ Liệu Theo Ngày
+            const tbody = document.getElementById('tk-daily-table-body');
+            tbody.innerHTML = '';
+            
+            if (data.chiTietNgay && data.chiTietNgay.length > 0) {
+                data.chiTietNgay.forEach((dayReport, index) => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid #eee';
+                    tr.style.transition = '0.2s';
+                    tr.onmouseover = () => tr.style.backgroundColor = '#f1f8ff';
+                    tr.onmouseout = () => tr.style.backgroundColor = 'transparent';
+                    
+                    // Phân biệt màu sắc: Ngày có doanh thu (Xanh dương) vs Ngày "Móm" (Xám)
+                    const isCoDoanhThu = dayReport.doanhThu > 0;
+                    const textColor = isCoDoanhThu ? '#333' : '#999';
+                    const fontThongSo = isCoDoanhThu ? 'bold' : 'normal';
+
+                    tr.innerHTML = `
+                        <td style="padding: 12px; color: ${textColor};">${index + 1}</td>
+                        <td style="padding: 12px; font-weight: bold; color: ${textColor};">${dayReport.ngay}</td>
+                        <td style="padding: 12px; text-align: right; font-weight: ${fontThongSo}; color: ${isCoDoanhThu ? '#0b5aa6' : '#999'};">${formatMoney(dayReport.doanhThu)} đ</td>
+                        <td style="padding: 12px; text-align: left; padding-left: 30px; color: ${textColor}; font-style: ${isCoDoanhThu ? 'normal' : 'italic'};">${dayReport.spBanChay}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 30px; color: #777;">Không có dữ liệu trong khoảng thời gian này</td></tr>';
+            }
+
         } catch (err) {
             console.error("Lỗi:", err);
-            document.querySelectorAll('.card .value')[0].textContent = "Lỗi dữ liệu"; 
+            document.querySelectorAll('.card .value')[0].textContent = "Lỗi tải dữ liệu"; 
         }
     }
-
-    async function loadNhanVienFilter() {
-        const select = document.getElementById('nv-filter');
-        if (select.options.length > 1) return; 
-        try {
-            const res = await fetch(`${API_BASE}/nhanvien`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            const nvs = await res.json();
-            nvs.forEach(nv => {
-                let opt = document.createElement('option');
-                opt.value = nv.id; opt.textContent = nv.hoten;
-                select.appendChild(opt);
-            });
-        } catch (e) {}
-    }
-
-
-
     document.querySelector('#dashboard-view .btn-save').onclick = fetchThongKe;
     
     

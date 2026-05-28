@@ -28,75 +28,73 @@ public class ThongKeController {
     public ThongKeResponse getStats(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
-            @RequestParam(defaultValue = "STORE") String mode, // "STORE" hoặc "ALL_EMP"
-            @RequestParam(required = false) List<Integer> empIds) { // Danh sách ID nhân viên (Nếu chọn tùy chỉnh)
+            @RequestParam(required = false, defaultValue = "ALL") String empIdStr) { // ALL = Toàn cửa hàng
 
-        // 1. Tính Tổng (Giữ nguyên logic cũ của bạn)
+        // 1. LUÔN LẤY TỔNG QUAN CHO TOÀN CỬA HÀNG (Không filter theo empId)
         Double tong = hoadonRepo.tinhTongDoanhThu(from, to, null);
         Long soDon = hoadonRepo.demSoDonHang(from, to, null);
         String spChung = hoadonRepo.findSpBanChayNhat(from, to, null);
 
-        // 2. Lấy dữ liệu thô từ Database
-        StringBuilder sql = new StringBuilder();
-        if (mode.equals("STORE")) {
-            // Chế độ cửa hàng: Chỉ lấy theo ngày
-            sql.append("SELECT TO_CHAR(hd.ngaylap, 'DD/MM') as ngay, 'Toàn cửa hàng' as ten, SUM(hd.tongtien) as doanhthu ");
-            sql.append("FROM HOADON hd WHERE hd.trangthai = 'HOAN_THANH' AND hd.ngaylap >= :from AND hd.ngaylap <= :to ");
-            sql.append("GROUP BY TO_CHAR(hd.ngaylap, 'DD/MM') ORDER BY TO_CHAR(hd.ngaylap, 'DD/MM')");
-        } else {
-            // Chế độ tất cả nhân viên: Lấy theo ngày VÀ theo nhân viên
-            sql.append("SELECT TO_CHAR(hd.ngaylap, 'DD/MM') as ngay, (SELECT nv.hoten FROM NHANVIEN nv WHERE nv.id = hd.nhanvien_id) as ten, SUM(hd.tongtien) as doanhthu ");
-            sql.append("FROM HOADON hd WHERE hd.trangthai = 'HOAN_THANH' AND hd.ngaylap >= :from AND hd.ngaylap <= :to ");
-            
-            // Nếu có lọc riêng danh sách nhân viên
-            if (empIds != null && !empIds.isEmpty()) {
-                sql.append("AND hd.nhanvien_id IN (:empIds) ");
-            }
-            sql.append("GROUP BY TO_CHAR(hd.ngaylap, 'DD/MM'), hd.nhanvien_id ORDER BY TO_CHAR(hd.ngaylap, 'DD/MM')");
+        // 2. Xử lý logic lọc nhân viên cho Bảng
+        Integer empId = null;
+        if (!"ALL".equals(empIdStr)) {
+            try { empId = Integer.parseInt(empIdStr); } catch (Exception ignored) {}
         }
 
-        Query query = entityManager.createNativeQuery(sql.toString());
-        query.setParameter("from", java.sql.Timestamp.valueOf(from));
-        query.setParameter("to", java.sql.Timestamp.valueOf(to));
-        if (mode.equals("ALL_EMP") && empIds != null && !empIds.isEmpty()) {
-            query.setParameter("empIds", empIds);
-        }
-
-        List<Object[]> results = query.getResultList();
-
-        // 3. TẠO MẢNG LABELS (TRỤC X) - Lấp đầy các ngày
-        List<String> labels = new ArrayList<>();
+        List<ThongKeResponse.DailyReport> chiTietNgay = new ArrayList<>();
         java.time.LocalDate curr = from.toLocalDate();
         java.time.LocalDate end = to.toLocalDate();
+
+        // 3. Vòng lặp quét từng ngày để tạo ra các dòng Báo cáo
         while (!curr.isAfter(end)) {
-            String dayStr = String.format("%02d/%02d", curr.getDayOfMonth(), curr.getMonthValue());
-            labels.add(dayStr);
-            curr = curr.plusDays(1);
-        }
+            LocalDateTime startOfDay = curr.atStartOfDay();
+            LocalDateTime endOfDay = curr.atTime(23, 59, 59);
+            String dateStr = String.format("%02d/%02d/%04d", curr.getDayOfMonth(), curr.getMonthValue(), curr.getYear());
 
-        // 4. PHÂN BỔ DỮ LIỆU VÀO DATASET
-        java.util.Map<String, List<Double>> datasetMap = new java.util.LinkedHashMap<>();
-        for (Object[] row : results) {
-            String ngay = (String) row[0];
-            String tenNV = row[1] != null ? (String) row[1] : "Không xác định";
-            Double tien = row[2] != null ? ((Number) row[2]).doubleValue() : 0.0;
-
-            // Nếu nhân viên này chưa có trong Map, tạo mảng 0.0 cho tất cả các ngày
-            datasetMap.putIfAbsent(tenNV, new ArrayList<>(java.util.Collections.nCopies(labels.size(), 0.0)));
+            // --- A. Query Doanh thu của ngày hôm đó ---
+            StringBuilder sqlDt = new StringBuilder("SELECT SUM(hd.tongtien) FROM HOADON hd WHERE hd.trangthai = 'HOAN_THANH' AND hd.ngaylap >= :startOfDay AND hd.ngaylap <= :endOfDay");
+            if (empId != null) sqlDt.append(" AND hd.nhanvien_id = :empId");
             
-            // Cắm tiền vào đúng index của ngày
-            int dayIndex = labels.indexOf(ngay);
-            if (dayIndex != -1) {
-                datasetMap.get(tenNV).set(dayIndex, tien);
+            Query queryDt = entityManager.createNativeQuery(sqlDt.toString());
+            queryDt.setParameter("startOfDay", java.sql.Timestamp.valueOf(startOfDay));
+            queryDt.setParameter("endOfDay", java.sql.Timestamp.valueOf(endOfDay));
+            if (empId != null) queryDt.setParameter("empId", empId);
+            
+            Double doanhThuNgay = 0.0;
+            Object resultDt = queryDt.getSingleResult();
+            if (resultDt != null) doanhThuNgay = ((Number) resultDt).doubleValue();
+
+            // --- B. Query SP Bán chạy nhất của ngày hôm đó ---
+            String spBanChayNgay = "Không có";
+            if (doanhThuNgay > 0) {
+                StringBuilder sqlSp = new StringBuilder(
+                    "SELECT sp.ten FROM CTHD ct " +
+                    "JOIN HOADON hd ON ct.hoadon_id = hd.id " +
+                    "JOIN SANPHAM sp ON ct.sanpham_id = sp.id " +
+                    "WHERE hd.trangthai = 'HOAN_THANH' AND hd.ngaylap >= :startOfDay AND hd.ngaylap <= :endOfDay"
+                );
+                if (empId != null) sqlSp.append(" AND hd.nhanvien_id = :empId");
+                sqlSp.append(" GROUP BY sp.ten ORDER BY SUM(ct.soluong) DESC");
+                
+                Query querySp = entityManager.createNativeQuery(sqlSp.toString());
+                querySp.setParameter("startOfDay", java.sql.Timestamp.valueOf(startOfDay));
+                querySp.setParameter("endOfDay", java.sql.Timestamp.valueOf(endOfDay));
+                if (empId != null) querySp.setParameter("empId", empId);
+                
+                // setMaxResults(1) đảm bảo an toàn trên mọi loại Database (MySQL, SQL Server, Oracle)
+                querySp.setMaxResults(1); 
+                List<?> resultSp = querySp.getResultList();
+                if (!resultSp.isEmpty() && resultSp.get(0) != null) {
+                    spBanChayNgay = resultSp.get(0).toString();
+                }
             }
+
+            // --- C. Đóng gói dòng và đẩy vào mảng ---
+            chiTietNgay.add(new ThongKeResponse.DailyReport(dateStr, doanhThuNgay, spBanChayNgay));
+            
+            curr = curr.plusDays(1); // Sang ngày tiếp theo
         }
 
-        // Chuyển Map thành List Dataset
-        List<ThongKeResponse.ChartDataset> datasets = new ArrayList<>();
-        for (java.util.Map.Entry<String, List<Double>> entry : datasetMap.entrySet()) {
-            datasets.add(new ThongKeResponse.ChartDataset(entry.getKey(), entry.getValue()));
-        }
-
-        return new ThongKeResponse(tong, soDon, spChung != null ? spChung : "Chưa có", labels, datasets);
+        return new ThongKeResponse(tong, soDon, spChung != null ? spChung : "Chưa có", chiTietNgay);
     }
 }
