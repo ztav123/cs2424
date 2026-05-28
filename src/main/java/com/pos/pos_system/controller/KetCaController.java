@@ -12,9 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -46,9 +45,26 @@ public class KetCaController {
                 cashCounted = ((Number) payload.get("tienmat")).doubleValue();
             }
             
-            Boolean quanly = (Boolean) payload.get("quanly");
+            // Trích xuất an toàn giá trị quanly đề phòng bị null
+            Boolean quanly = payload.get("quanly") != null ? (Boolean) payload.get("quanly") : false;
             
-            if (quanly) {
+            if (!quanly) {
+                // =========================================================================
+                // LUỒNG 1: THU NGÂN KẾT CA (CẬP NHẬT CA HIỆN TẠI)
+                // =========================================================================
+                CaLam shift = caLamRepo.findTopByNhanVienIdOrderByBatdauDesc(nhanVienId);
+                if (shift == null) {
+                    return ResponseEntity.badRequest().body("Lỗi: Không tìm thấy ca làm gần nhất!");
+                }
+                
+                // Gọi Procedure PROC_KET_CA cập nhật tiền và đóng ca làm việc an toàn
+                caLamRepo.thucHienKetCa(shift.getId(), cashCounted, "Kết ca từ App");
+                return ResponseEntity.ok("Cập nhật kết ca thành công!");
+                
+            } else {
+                // =========================================================================
+                // LUỒNG 2: QUẢN LÝ MỞ CA MỚI (CHỖ THIẾU KHIẾN HÀM BÁO LỖI)
+                // =========================================================================
                 NhanVien nv = nhanVienRepo.findById(nhanVienId).orElse(null);
                 if (nv == null) {
                     return ResponseEntity.badRequest().body("Không tìm thấy nhân viên/quản lý!");
@@ -56,34 +72,19 @@ public class KetCaController {
                 
                 CaLam newShift = new CaLam();
                 newShift.setNhanVien(nv);
-                newShift.setBatdau(LocalDateTime.now()); 
-                newShift.setKetthuc(LocalDateTime.now()); 
-                newShift.setTienmatKetca(cashCounted); 
+                newShift.setBatdau(LocalDateTime.now());
+                newShift.setTienmatKetca(cashCounted); // Ca mới chưa có tiền kết ca
+                newShift.setMayPos(mayPos);
                 
-                // ĐÃ SỬA: Gán giá trị máy POS vào đây để Oracle không báo lỗi NULL ở luồng INSERT
-                newShift.setMayPos(mayPos); 
+                // Giá trị ban đầu truyền vào là 0.0 hoặc null, Trigger TRG_CALAM_TIENMAT_BANDAU 
+                // dưới DB sẽ tự động lấy tiền kết ca của ca trước gán vào ca này.
+                newShift.setTienmatBandau(0.0); 
+                newShift.setKetthuc(LocalDateTime.now());
                 
-                caLamRepo.save(newShift); 
+                caLamRepo.save(newShift);
                 return ResponseEntity.ok("Tạo ca mới thành công!");
-            } else {
-                // Logic cập nhật ca cũ
-                CaLam shift = caLamRepo.findTopByNhanVienIdOrderByBatdauDesc(nhanVienId);
-                if (shift == null) {
-                    return ResponseEntity.badRequest().body("Lỗi: Không tìm thấy ca làm gần nhất!");
-                }
-
-                shift.setKetthuc(LocalDateTime.now()); 
-                shift.setTienmatKetca(cashCounted);
-                
-                // ĐÃ SỬA: Đồng bộ cập nhật hoặc giữ vững số máy POS ở luồng UPDATE
-                shift.setMayPos(mayPos);
-                
-                Double sysBank = shift.getTienNganhang() != null ? shift.getTienNganhang() : 0.0;
-                shift.setTongtienThucte(sysBank + cashCounted);
-                
-                caLamRepo.save(shift); 
-                return ResponseEntity.ok("Cập nhật kết ca thành công!");
             }
+            
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body("Lỗi Server: " + e.getMessage());
@@ -92,11 +93,23 @@ public class KetCaController {
 
     @GetMapping("/logs-today")
     public List<CaLam> getLogsToday(@RequestParam(defaultValue = "1") Integer mayPos) {
-        LocalDateTime start = LocalDate.now().atStartOfDay();
-        LocalDateTime end = LocalDate.now().atTime(LocalTime.MAX);
+            
+        java.time.LocalDateTime start = java.time.LocalDate.now().atStartOfDay();
+        java.time.LocalDateTime end = java.time.LocalDate.now().atTime(java.time.LocalTime.MAX);
         
-        // Truyền tham số mayPos động nhận từ Frontend gửi lên
-        return caLamRepo.findByMayPosAndBatdauBetweenAndKetthucIsNotNullOrderByIdAsc(mayPos, start, end);
+        List<CaLam> finishedShifts = caLamRepo.findByMayPosAndBatdauBetweenAndKetthucIsNotNullOrderByIdAsc(mayPos, start, end);
+        List<CaLam> allShifts = new ArrayList<>(finishedShifts);
+
+        // ĐÃ SỬA: Lấy duy nhất 1 đối tượng ca đang diễn ra mới nhất
+        CaLam activeShift = caLamRepo.findTopByMayPosAndKetthucIsNullOrderByIdDesc(mayPos);
+        if (activeShift != null) {
+            // Kiểm tra tránh trùng lặp nếu danh sách trên bộ nhớ đệm đã chứa
+            if (!allShifts.contains(activeShift)) {
+                allShifts.add(activeShift);
+            }
+        }
+        
+        return allShifts;
     }
 
     @GetMapping("/export-pdf/{id}")

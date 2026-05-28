@@ -823,6 +823,7 @@
         resultArea.style.display = 'none';
         document.getElementById('newCustomerArea').style.display = 'none';
         currentCustomerSdt = null;
+        currentCustomerName = null;
     });
 
     document.getElementById('closeLoyaltyDotBtn').addEventListener('click', () => loyaltyModal.style.display = 'none');
@@ -879,8 +880,9 @@
             }
             if (res.ok) {
                 const savedCustomer = await res.json();
-                currentCustomerSdt = savedCustomer.sdt; 
-                alert(`Đã tạo khách hàng: ${savedCustomer.ten}`);
+                currentCustomerSdt = savedCustomer.sdt;
+                currentCustomerName = savedCustomer.hoten;
+                alert(`Đã tạo khách hàng: ${currentCustomerName} (${currentCustomerSdt})`);
                 openPaymentModalFlow();
             } else alert("Lỗi tạo khách hàng!");
         } catch (error) { alert("Lỗi kết nối máy chủ!"); }
@@ -894,7 +896,7 @@
         
         const now = new Date();
         const invoiceId = "HD36" + now.getTime(); 
-        document.getElementById('bill-customer-display').textContent = currentCustomerSdt || "Khách lỏ";
+        document.getElementById('bill-customer-display').textContent = currentCustomerName || "Khách lỏ";
         document.getElementById('bill-id-display').textContent = invoiceId;
         document.getElementById('bill-staff-display').textContent = sessionStorage.getItem('currentNhanVienName') || "N/A";
         document.getElementById('bill-date-display').textContent = now.toLocaleString('vi-VN');

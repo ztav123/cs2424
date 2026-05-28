@@ -143,18 +143,30 @@
                 </div>
 
                 <div class="dashboard-wrapper" id="dashboard-view">
-                    <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                         <input type="date" id="date-from"> <label>-</label> <input type="date" id="date-to">
-                        <select id="nv-filter"><option>Tất cả nhân viên</option></select>
-                        <button class="btn btn-save">Lọc</button>
+                        
+                        <select id="tk-mode-select" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                            <option value="STORE">Doanh thu toàn cửa hàng</option>
+                            <option value="ALL_EMP">So sánh tất cả nhân viên</option>
+                        </select>
+
+                        <select id="nv-filter" multiple style="display:none; height: 35px; border-radius: 4px; border: 1px solid #ccc;" title="Giữ Ctrl để chọn nhiều">
+                            </select>
+
+                        <button class="btn btn-save" onclick="fetchThongKe()">Lọc & Vẽ</button>
                     </div>
+                    
                     <div class="stats-cards">
-                        <div class="card"><h3>Tổng Doanh Thu</h3><div class="value">36 67 đ</div></div>
-                        <div class="card"><h3>Số Đơn Hàng</h3><div class="value">367</div></div>
-                        <div class="card"><h3>SP Bán Chạy Nhất</h3><div class="value">Tài lộc wa lớn</div></div>
+                        <div class="card"><h3>Tổng Doanh Thu</h3><div class="value">0 đ</div></div>
+                        <div class="card"><h3>Số Đơn Hàng</h3><div class="value">0</div></div>
+                        <div class="card"><h3>SP Bán Chạy Nhất</h3><div class="value">N/A</div></div>
                     </div>
-                    <div class="chart-placeholder" style="padding: 10px; background: white; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-                        <canvas id="revenueChart" style="width: 100%; height: 100%;"></canvas>
+                    
+                    <div class="chart-placeholder" style="padding: 10px; background: white; border: none; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto; overflow-y: hidden;">
+                        <div id="chart-scroll-container" style="height: 100%; width: 100%; min-width: 800px;">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
                     </div>
                 </div>
 
@@ -240,7 +252,12 @@
         khachHang: 'Khách Hàng', ngaylap: 'Ngày Lập', tongtien: 'Tổng Tiền'
     };
 
-    // --- 3. BẢNG DỮ LIỆU ---
+    // --- 3. BẢNG DỮ LIỆU (SỬA LỖI CRASH SORT - KHÔI PHỤC CLICK CHỌN ROW) ---
+    // --- 3. BẢNG DỮ LIỆU (SỬA LỖI CRASH SORT - KHÔI PHỤC CLICK CHỌN ROW) ---
+    let currentTableData = []; 
+    let activeSearchCol = null; 
+    let activeSearchKeyword = ''; 
+
     async function loadAndRenderTable() {
         if (currentTab === 'tk' || currentTab === 'tm') return;
         const head = document.getElementById('table-header');
@@ -249,56 +266,178 @@
 
         try {
             const response = await fetch(API_BASE + apiEndpoints[currentTab], {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${token}` }
             });
 
-            // THÊM ĐOẠN NÀY VÀO:
             if (response.status === 403 || response.status === 401) {
                 alert("Phiên đăng nhập hết hạn hoặc bạn không có quyền truy cập!");
                 window.location.href = 'login.html';
                 return;
             }
-            const responseData = await response.json();
-            const data = responseData.content ? responseData.content : responseData; 
-            const cols = colDef[currentTab];
-
-            head.innerHTML = `<th>#</th>` + cols.map(col => `
-                <th onclick="handleHeaderClick(this, '${col}')">
-                    ${colNames[col]} ${sortConfig.column === col ? (sortConfig.order === 'asc' ? '↑' : '↓') : ''}
-                    <input type="text" class="search-input" placeholder="Tìm ${colNames[col]}..." onclick="event.stopPropagation()" onkeyup="handleSearch(event, '${col}')">
-                </th>
-            `).join('');
             
-            data.forEach((row, index) => {
-                const tr = document.createElement('tr');
-                tr.onclick = () => focusRow(tr, row);
-                let rowHtml = `<td>${index + 1}</td>`;
-                cols.forEach(col => {
-                    let cellValue = row[col] !== null ? row[col] : '';
-                    if (col === 'khachHang' && cellValue) cellValue = cellValue.sdt;
-                    if (col === 'giaban' || col === 'tongtien') cellValue = Number(cellValue).toLocaleString() + ' đ';
-                    if (col === 'trangthai' && currentTab === 'nv') {
-                        cellValue = cellValue === 1 ? '<span style="color:green; font-weight:bold;">Đang làm</span>' : '<span style="color:red">Nghỉ việc</span>';
-                    }
-                    if (col === 'tonkho') {
-                        cellValue = cellValue > 0 ? cellValue : '<span style="color:red">Hết hàng</span>';
-                    }
-                    if (col === 'isDeleted') {
-                        cellValue = cellValue === 1 ? '<span style="color:red">Ngừng bán</span>' : '<span style="color:green">Còn bán</span>';
-                    }
-                    rowHtml += `<td>${cellValue}</td>`;
-                });
-                tr.innerHTML = rowHtml;
-                body.appendChild(tr);
-            });
-            focusedRowData = null;
-            updateFabIcon();
+            const responseData = await response.json();
+            currentTableData = responseData.content ? responseData.content : responseData; 
+            
+            // Reset cấu hình khi chuyển đổi tab dữ liệu
+            sortConfig = { column: null, order: 'asc' };
+            activeSearchCol = null;
+            activeSearchKeyword = '';
+
+            renderTableHeaders();
+            renderTableRows();
         } catch (error) {
             head.innerHTML = '<th style="color:red">Lỗi kết nối Server! Vui lòng bật Spring Boot.</th>';
         }
     }
 
+    // 3.1 VẼ HEADER (Giữ nguyên ô tìm kiếm Realtime)
+    function renderTableHeaders() {
+        const head = document.getElementById('table-header');
+        const cols = colDef[currentTab];
+        
+        head.innerHTML = `<th style="width: 50px;">#</th>` + cols.map(col => {
+            const isSorted = sortConfig.column === col;
+            const sortIcon = isSorted ? (sortConfig.order === 'asc' ? ' 🔼' : ' 🔽') : ' ↕️';
+            const isSearching = activeSearchCol === col;
+            
+            return `
+            <th class="${isSearching ? 'show-search' : ''}" onclick="handleHeaderClick('${col}')" style="vertical-align: top; cursor: pointer;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>${colNames[col]} ${sortIcon}</span>
+                </div>
+                <input type="text" class="search-input" placeholder="Lọc ${colNames[col]}..." 
+                       value="${isSearching ? activeSearchKeyword : ''}"
+                       onclick="event.stopPropagation()" 
+                       oninput="handleSearch(event, '${col}')"
+                       style="margin-top: 8px; width: 100%; padding: 6px; border: 1px solid #0b5aa6; border-radius: 4px; outline: none; font-weight: normal; font-size: 0.9rem;">
+            </th>`;
+        }).join('');
+    }
+
+    // 3.2 XỬ LÝ CLICK HEADER CỘT ĐỂ XẾP THỨ TỰ
+    function handleHeaderClick(column) {
+        if (sortConfig.column === column) {
+            sortConfig.order = sortConfig.order === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortConfig.column = column; 
+            sortConfig.order = 'asc';
+        }
+        
+        if (activeSearchCol !== column) {
+            activeSearchCol = column;
+            activeSearchKeyword = '';
+        }
+
+        renderTableHeaders(); 
+        renderTableRows();    
+    }
+
+    // 3.3 GÕ ĐẾN ĐÂU LỌC ĐẾN ĐẤY REALTIME
+    function handleSearch(event, column) {
+        activeSearchCol = column;
+        activeSearchKeyword = event.target.value.toLowerCase().trim();
+        renderTableRows(); 
+    }
+
+    // 3.4 ĐỔ DỮ LIỆU ĐÃ ĐƯỢC VÁ LỖI PHƯƠNG THỨC SORT BẤT TỬ
+    function renderTableRows() {
+        const body = document.getElementById('table-body');
+        body.innerHTML = '';
+        const cols = colDef[currentTab];
+        
+        // BƯỚC A: LỌC DỮ LIỆU
+        let processedData = currentTableData.filter(row => {
+            if (!activeSearchKeyword || !activeSearchCol) return true;
+            
+            let cellValue = row[activeSearchCol];
+            if (cellValue === null || cellValue === undefined) return false;
+            
+            if (activeSearchCol === 'khachHang' && cellValue.sdt) cellValue = cellValue.sdt;
+            if (activeSearchCol === 'trangthai' && currentTab === 'nv') cellValue = cellValue === 1 ? 'đang làm' : 'nghỉ việc';
+            if (activeSearchCol === 'isDeleted') cellValue = cellValue === 1 ? 'ngừng bán' : 'còn bán';
+            if (activeSearchCol === 'tonkho') cellValue = cellValue > 0 ? cellValue : 'hết hàng';
+            
+            return cellValue.toString().toLowerCase().includes(activeSearchKeyword);
+        });
+
+        // BƯỚC B: SẮP XẾP DỮ LIỆU (ĐÃ SỬA LỖI CHÍ MẠNG Ở ĐÂY)
+        if (sortConfig.column) {
+            processedData.sort((a, b) => {
+                let valA = a[sortConfig.column]; 
+                let valB = b[sortConfig.column];
+                
+                if (valA === null || valA === undefined) valA = ''; 
+                if (valB === null || valB === undefined) valB = '';
+                
+                if (sortConfig.column === 'khachHang') { 
+                    valA = valA.sdt || ''; 
+                    valB = valB.sdt || ''; 
+                }
+                
+                // CHỐT CHẶN VÀNG: Nếu hai giá trị bằng nhau, trả về 0 để không làm crash luồng xử lý JavaFX
+                if (valA === valB) return 0;
+
+                // Nếu là số, ép kiểu để so sánh giá trị lớn nhỏ chính xác (Giá bán, tổng tiền)
+                const numA = Number(valA);
+                const numB = Number(valB);
+                if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
+                    return sortConfig.order === 'asc' ? numA - numB : numB - numA;
+                }
+                
+                // Sắp xếp chuỗi chữ văn bản theo bảng chữ cái
+                return sortConfig.order === 'asc' ? 
+                    valA.toString().localeCompare(valB.toString()) : 
+                    valB.toString().localeCompare(valA.toString());
+            });
+        }
+
+        // BƯỚC C: RENDER RA HTML VÀ GẮN LẠI SỰ KIỆN CLICK CHUẨN XÁC
+        if (processedData.length === 0) {
+            body.innerHTML = `<tr><td colspan="${cols.length + 1}" style="text-align:center; color:#777; padding: 20px;">Không tìm thấy dữ liệu phù hợp!</td></tr>`;
+            return;
+        }
+
+        processedData.forEach((row, index) => {
+            const tr = document.createElement('tr');
+            
+            // Kích hoạt lại hàm focusRow gốc của hệ thống khi người dùng click chuột
+            tr.onclick = () => focusRow(tr, row);
+            
+            // Tái áp dụng màu nền xanh nếu dòng này đã được chọn trước đó
+            if (focusedRowData && focusedRowData.id === row.id) {
+                tr.classList.add('focused');
+            }
+            
+            let rowHtml = `<td>${index + 1}</td>`;
+            cols.forEach(col => {
+                let cellValue = row[col] !== null ? row[col] : '';
+                if (col === 'khachHang' && cellValue) cellValue = cellValue.sdt;
+                if (col === 'giaban' || col === 'tongtien') cellValue = Number(cellValue).toLocaleString('vi-VN') + ' đ';
+                if (col === 'trangthai' && currentTab === 'nv') {
+                    cellValue = cellValue === 1 ? '<span style="color:green; font-weight:bold;">Đang làm</span>' : '<span style="color:red">Nghỉ việc</span>';
+                }
+                if (col === 'tonkho') {
+                    cellValue = cellValue > 0 ? cellValue : '<span style="color:red">Hết hàng</span>';
+                }
+                if (col === 'isDeleted') {
+                    cellValue = cellValue === 1 ? '<span style="color:red">Ngừng bán</span>' : '<span style="color:green">Còn bán</span>';
+                }
+                rowHtml += `<td>${cellValue}</td>`;
+            });
+            tr.innerHTML = rowHtml;
+            body.appendChild(tr);
+        });
+        
+        // Kiểm tra an toàn: Nếu dòng đang chọn bị bộ lọc ẩn đi, reset nút Sửa về dấu Cộng
+        if (focusedRowData) {
+            const isStillVisible = processedData.some(r => r.id === focusedRowData.id);
+            if (!isStillVisible) {
+                focusedRowData = null;
+            }
+        }
+        updateFabIcon();
+    }
     function focusRow(trElement, rowData) {
         document.querySelectorAll('#table-body tr').forEach(tr => tr.classList.remove('focused'));
         if (focusedRowData && focusedRowData.id === rowData.id) {
@@ -307,41 +446,6 @@
         trElement.classList.add('focused');
         focusedRowData = rowData;
         updateFabIcon();
-    }
-
-    function handleHeaderClick(thElement, column) {
-        document.querySelectorAll('th').forEach(th => {
-            if (th !== thElement) th.classList.remove('show-search');
-        });
-        thElement.classList.toggle('show-search');
-        if (sortConfig.column === column) {
-            sortConfig.order = sortConfig.order === 'asc' ? 'desc' : 'asc';
-        } else {
-            sortConfig.column = column; sortConfig.order = 'asc';
-        }
-    }
-
-    function handleSearch(event, column) {
-        if (event.key === 'Enter') {
-            const keyword = event.target.value.toLowerCase().trim();
-            const cols = colDef[currentTab];
-            const colIndex = cols.indexOf(column); 
-            const rows = document.querySelectorAll('#table-body tr');
-            
-            rows.forEach(row => {
-                const cell = row.querySelector(`td:nth-child(${colIndex + 2})`);
-                if (cell) {
-                    if (cell.textContent.toLowerCase().includes(keyword)) {
-                        row.style.display = ''; 
-                    } else {
-                        row.style.display = 'none'; row.classList.remove('focused');
-                    }
-                }
-            });
-            if (!document.querySelector('#table-body tr.focused')) {
-                focusedRowData = null; updateFabIcon();
-            }
-        }
     }
 
     // --- 4. FAB & Modal Logic ---
@@ -703,59 +807,62 @@
         return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     };
 
-    function renderChart(chartData) {
+    // Xử lý ẩn hiện Multi-Select Nhân viên
+    document.getElementById('tk-mode-select').onchange = function() {
+        document.getElementById('nv-filter').style.display = this.value === 'ALL_EMP' ? 'inline-block' : 'none';
+    };
+
+    function renderChart(labels, datasets) {
+        const container = document.getElementById('chart-scroll-container');
         const ctx = document.getElementById('revenueChart').getContext('2d');
         if (revenueChart !== null) revenueChart.destroy();
         
-        const labels = chartData.map(item => item.ngay);
-        const revenues = chartData.map(item => item.doanhThu);
+        // CÔNG THỨC ĂN TIỀN: Tính toán chiều rộng động cho biểu đồ
+        // Mỗi ngày cần (Số người * 40px chiều rộng cột) + 30px khoảng cách giữa các ngày
+        const numDays = labels.length;
+        const numDatasets = datasets.length;
+        const widthPerGroup = (numDatasets * 40) + 30; 
+        const requiredWidth = Math.max(container.parentElement.clientWidth, numDays * widthPerGroup + 50);
+        
+        container.style.width = requiredWidth + 'px';
+
+        // Bộ màu sắc ngẫu nhiên chuyên nghiệp cho từng nhân viên
+        const colors = [
+            '#0b5aa6', '#e67e22', '#28a745', '#dc3545', '#6f42c1', '#17a2b8', '#fd7e14', '#20c997'
+        ];
+
+        const chartDatasets = datasets.map((ds, index) => ({
+            label: ds.label,
+            data: ds.data,
+            backgroundColor: colors[index % colors.length],
+            borderRadius: 4,
+            barPercentage: 0.8,
+            categoryPercentage: 0.8
+        }));
 
         revenueChart = new Chart(ctx, {
             type: 'bar',
             data: { 
                 labels: labels, 
-                datasets: [{ 
-                    label: 'Doanh thu', 
-                    data: revenues, 
-                    backgroundColor: 'rgba(11, 90, 166, 0.8)', 
-                    borderColor: 'rgba(11, 90, 166, 1)', 
-                    borderWidth: 1, 
-                    borderRadius: 4,
-                    maxBarThickness: 60 // Khóa độ rộng cột, không cho cột phình to bấy bá khi ít dữ liệu
-                }] 
+                datasets: chartDatasets 
             },
             options: {
                 responsive: true, 
                 maintainAspectRatio: false,
-                // Ép JavaFX nhận diện rê chuột nhạy hơn
-                events: ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove'],
-                interaction: {
-                    mode: 'index',
-                    intersect: false, // Không cần trỏ chính xác vào cột vẫn hiện Hover
-                },
-                hover: {
-                    mode: 'index',
-                    intersect: false
-                },
                 plugins: {
-                    legend: { display: false },
+                    legend: { display: true, position: 'top' }, // Bật chú thích tên nhân viên
                     tooltip: {
-                        backgroundColor: 'rgba(44, 51, 56, 0.95)',
-                        titleFont: { size: 14 },
-                        bodyFont: { size: 13 },
-                        padding: 12,
                         callbacks: {
-                            // Dùng formatMoney thay vì toLocaleString để tránh crash tooltip
                             label: function(context) { 
-                                return ' Doanh thu: ' + formatMoney(context.raw) + ' đ'; 
-                            },
-                            afterLabel: function(context) { 
-                                return ' SP Bán chạy: ' + chartData[context.dataIndex].spBanChay; 
+                                return context.dataset.label + ': ' + formatMoney(context.raw) + ' đ'; 
                             }
                         }
                     }
                 },
                 scales: { 
+                    x: {
+                        stacked: false // Các cột nằm cạnh nhau
+                    },
                     y: { 
                         beginAtZero: true, 
                         ticks: { callback: value => formatMoney(value) + ' đ' } 
@@ -765,57 +872,22 @@
         });
     }
 
-    // 2. Hàm tự động điền các ngày không có giao dịch để biểu đồ liền mạch
-    function fillMissingDates(apiData, startStr, endStr) {
-        let start = new Date(startStr);
-        let end = new Date(endStr);
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) return apiData;
-
-        // Giới hạn 31 ngày để tránh giật lag UI
-        const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24));
-        if (diffDays > 31) start = new Date(end.getTime() - (31 * 24 * 60 * 60 * 1000));
-
-        let filledData = [];
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            let dayStr = d.getDate().toString().padStart(2, '0') + '/' + (d.getMonth() + 1).toString().padStart(2, '0');
-            let found = apiData.find(item => item.ngay === dayStr);
-            if (found) {
-                filledData.push(found);
-            } else {
-                // Ngày trống doanh thu
-                filledData.push({ ngay: dayStr, doanhThu: 0, spBanChay: 'Không phát sinh' }); 
-            }
-        }
-        return filledData;
-    }
-
-    async function loadNhanVienFilter() {
-        const select = document.getElementById('nv-filter');
-        if (select.options.length > 1) return; 
-        try {
-            const res = await fetch(`${API_BASE}/nhanvien`, {
-    method: 'GET',
-    headers: {
-        'Authorization': `Bearer ${token}`
-    }
-});
-            const nvs = await res.json();
-            nvs.forEach(nv => {
-                let opt = document.createElement('option');
-                opt.value = nv.id; opt.textContent = nv.hoten;
-                select.appendChild(opt);
-            });
-        } catch (e) {}
-    }
-
     async function fetchThongKe() {
         let dateFrom = document.getElementById('date-from').value;
         let dateTo = document.getElementById('date-to').value;
-        const nvId = document.getElementById('nv-filter').value;
+        const mode = document.getElementById('tk-mode-select').value;
+        
+        // Lấy danh sách ID nhân viên đã quét khối chọn
+        const nvSelect = document.getElementById('nv-filter');
+        const selectedEmpIds = Array.from(nvSelect.selectedOptions).map(opt => opt.value).join(',');
 
+        // ĐÃ SỬA: Hàm "chuẩn hóa" ngày tháng từ Flatpickr (DD/MM/YYYY) sang chuẩn API (YYYY-MM-DD)
         const normalizeDate = (dateStr) => {
             if (!dateStr) return null;
-            if (dateStr.includes('/')) { const parts = dateStr.split('/'); return `${parts[2]}-${parts[1]}-${parts[0]}`; }
+            if (dateStr.includes('/')) { 
+                const parts = dateStr.split('/'); 
+                return `${parts[2]}-${parts[1]}-${parts[0]}`; 
+            }
             return dateStr;
         };
 
@@ -833,77 +905,114 @@
         const startStr = `${parsedFrom}T00:00:00`;
         const endStr = `${parsedTo}T23:59:59`;
 
-        let url = `${API_BASE}/thongke/doanhthu?from=${startStr}&to=${endStr}`;
-        if (nvId && nvId !== 'Tất cả nhân viên') url += `&nhanVienId=${nvId}`;
+        let url = `${API_BASE}/thongke/doanhthu?from=${startStr}&to=${endStr}&mode=${mode}`;
+        if (mode === 'ALL_EMP' && selectedEmpIds !== '') {
+            url += `&empIds=${selectedEmpIds}`;
+        }
 
         try {
-            const cards = document.querySelectorAll('.card .value');
-            cards[0].textContent = "Đang tính...";
+            // Hiển thị trạng thái đang tính toán cho Quản lý
+            document.querySelectorAll('.card .value')[0].textContent = "Đang tính...";
             
-            const res = await fetch(url, {
-    method: 'GET',
-    headers: {
-        'Authorization': `Bearer ${token}`
-    }
-});
+            const res = await fetch(url, { method: 'GET', headers: { 'Authorization': `Bearer ${token}` } });
             if (!res.ok) throw new Error("Lỗi API");
             const data = await res.json();
 
-            // Gắn dữ liệu (Đã dùng formatMoney an toàn)
-            cards[0].textContent = formatMoney(data.tongDoanhThu) + ' đ';
-            cards[1].textContent = data.soDonHang || 0;
-            cards[2].textContent = data.spBanChayNhat || "N/A";
+            // Gắn dữ liệu an toàn
+            document.querySelectorAll('.card .value')[0].textContent = tmFormatMoney(data.tongDoanhThu) + ' đ';
+            document.querySelectorAll('.card .value')[1].textContent = data.soDonHang || 0;
+            document.querySelectorAll('.card .value')[2].textContent = data.spBanChayNhat || "N/A";
 
-            // Phủ đầy các ngày bị khuyết và vẽ biểu đồ
-            let finalChartData = fillMissingDates(data.bieuDo || [], startStr, endStr);
-            renderChart(finalChartData);
-
+            // Vẽ biểu đồ
+            renderChart(data.labels, data.datasets);
         } catch (err) {
             console.error("Lỗi:", err);
-            // Nếu có lỗi mạng thực sự, chỉ báo lỗi mạng
-            document.querySelectorAll('.card .value')[0].textContent = "3.250.000 đ"; // Dữ liệu giả để tránh crash UI
+            document.querySelectorAll('.card .value')[0].textContent = "Lỗi dữ liệu"; 
         }
     }
+
+    async function loadNhanVienFilter() {
+        const select = document.getElementById('nv-filter');
+        if (select.options.length > 1) return; 
+        try {
+            const res = await fetch(`${API_BASE}/nhanvien`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const nvs = await res.json();
+            nvs.forEach(nv => {
+                let opt = document.createElement('option');
+                opt.value = nv.id; opt.textContent = nv.hoten;
+                select.appendChild(opt);
+            });
+        } catch (e) {}
+    }
+
+
 
     document.querySelector('#dashboard-view .btn-save').onclick = fetchThongKe;
     
     
-    // --- 6. LOGIC TIỀN MẶT ---
+    // --- 6. LOGIC TIỀN MẶT (BỎ NUMPAD - NHẬP BẰNG BÀN PHÍM VẬT LÝ) ---
     const cashView = document.createElement('div');
     cashView.id = 'cash-view';
-    cashView.style.display = 'none'; cashView.style.padding = '20px'; cashView.style.gap = '20px'; cashView.style.height = '100%'; cashView.style.flex = '1';
+    // ĐÃ SỬA: Đảm bảo min-height: 0 cho container tổng
+    cashView.style.display = 'none'; cashView.style.padding = '15px'; cashView.style.gap = '15px'; cashView.style.height = '100%'; cashView.style.flex = '1'; cashView.style.minHeight = '0';
+    
     cashView.innerHTML = `
-        <div style="flex: 1.4; background: white; border-radius: 15px; padding: 2%; display: flex; flex-direction: column; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-            <div style="display: flex; background-color: #0b5aa6; color: white; border-radius: 8px 8px 0 0; padding: 10px; font-weight: bold; font-size: 0.9rem;">
-                <div style="flex: 1; text-align: left; padding-left: 10px;">Trị giá</div><div style="flex: 1; text-align: center;">Số lượng</div><div style="flex: 1; text-align: right; padding-right: 10px;">Thành tiền</div>
+        <style>
+            .tm-log-item { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; display: flex; gap: 12px; position: relative; margin-bottom: 12px;}
+            .tm-log-index { background: #0b5aa6; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: bold; flex-shrink: 0;}
+            .tm-log-content { flex: 1; display: flex; flex-direction: column; }
+            .tm-log-detail { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+            .tm-log-detail span { font-size: 0.9rem; }
+            
+            input[type=number]::-webkit-inner-spin-button, 
+            input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+            input[type=number] { -moz-appearance: textfield; }
+            
+            /* Tùy chỉnh làm đẹp thanh cuộn cho mượt mà */
+            #tm-table-body::-webkit-scrollbar { width: 6px; }
+            #tm-table-body::-webkit-scrollbar-thumb { background: #bbb; border-radius: 4px; }
+            #tm-table-body::-webkit-scrollbar-thumb:hover { background: #0b5aa6; }
+        </style>
+        
+        <div style="flex: 1.4; background: white; border-radius: 12px; padding: 15px; display: flex; flex-direction: column; box-shadow: 0 4px 10px rgba(0,0,0,0.05); min-height: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0b5aa6; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #0b5aa6; margin: 0; font-size: 1.1rem;">Lịch sử ca làm việc</h3>
+                <select id="tm-maypos-select" style="padding: 6px 12px; border-radius: 6px; border: 1px solid #0b5aa6; font-weight: bold; outline: none; background: #eaf1f7; color: #0b5aa6; font-size: 0.95rem; cursor: pointer;">
+                    <option value="1">Máy POS 1</option>
+                    <option value="2">Máy POS 2</option>
+                    <option value="3">Máy POS 3</option>
+                    <option value="4">Máy POS 4</option>
+                </select>
             </div>
-            <div id="tm-table-body" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column;"></div>
-            <div style="display: flex; justify-content: space-between; padding: 15px 10px; font-weight: bold; color: #555; font-size: 1.2rem;">
-                <span>Tiền kết ca (Ca gần nhất)</span><span id="tm-expected-total">Đang tải...</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; padding: 15px 10px; font-weight: bold; color: red; font-size: 1.2rem; border-top: 1px solid #888;">
-                <span>Tiền mặt đếm được trong két</span><span id="tm-grand-total">0 đ</span>
-            </div>
-            <div style="display: flex; justify-content: center; gap: 20px; margin-top: auto; padding-bottom: 10px;">
-                <button id="tm-btn-save-log" style="padding: 12px 24px; border: none; border-radius: 8px; background-color: #0b5aa6; color: white; font-weight: bold; font-size: 1rem; cursor: pointer; text-transform: uppercase;">In bảng kê</button>
+            <div id="tm-log-container" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; padding-right: 5px;">
             </div>
         </div>
-        <div style="flex: 0.9; display: flex; flex-direction: column; gap: 15px;">
-            <input type="text" id="tm-numpad-input" readonly value="" style="width: 100%; padding: 15px; font-size: 1.5rem; text-align: left; border: 1px solid #555; border-radius: 8px; outline: none;">
-            <div style="background-color: #d1d5db; border-radius: 15px; padding: 15px; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 80px); gap: 10px;">
-                <button class="tm-num-btn" data-val="7" style="background: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">7</button>
-                <button class="tm-num-btn" data-val="8" style="background: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">8</button>
-                <button class="tm-num-btn" data-val="9" style="background: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">9</button>
-                <button class="tm-num-btn" data-val="backspace" style="background: #0b5aa6; color: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">⌫</button>
-                <button class="tm-num-btn" data-val="4" style="background: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">4</button>
-                <button class="tm-num-btn" data-val="5" style="background: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">5</button>
-                <button class="tm-num-btn" data-val="6" style="background: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">6</button>
-                <button class="tm-num-btn" data-val="clear" style="background: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer;">clear</button>
-                <button class="tm-num-btn" data-val="1" style="background: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">1</button>
-                <button class="tm-num-btn" data-val="2" style="background: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">2</button>
-                <button class="tm-num-btn" data-val="3" style="background: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">3</button>
-                <button class="tm-num-btn" data-val="enter" style="grid-column: 4; grid-row: 3 / 5; background: #0b5aa6; color: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">enter</button>
-                <button class="tm-num-btn" data-val="0" style="grid-column: 1 / 4; background: white; border: none; border-radius: 8px; font-size: 1.2rem; font-weight: bold; cursor: pointer;">0</button>
+
+        <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+            <div style="background: white; border-radius: 12px; padding: 15px; flex: 1; display: flex; flex-direction: column; box-shadow: 0 4px 10px rgba(0,0,0,0.05); min-height: 0;">
+                
+                <div style="text-align: center; margin-bottom: 10px; color: #0b5aa6;">
+                    <h3 style="margin: 0; font-size: 1.1rem;">KIỂM ĐẾM TIỀN KÉT</h3>
+                </div>
+                
+                <div style="display: flex; background-color: #0b5aa6; color: white; border-radius: 6px 6px 0 0; padding: 8px 10px; font-weight: bold; font-size: 0.95rem;">
+                    <div style="flex: 1; text-align: left; padding-left: 10px;">Mệnh giá</div>
+                    <div style="flex: 1; text-align: center;">Số tờ</div>
+                    <div style="flex: 1; text-align: right; padding-right: 10px;">Thành tiền</div>
+                </div>
+                
+                <div id="tm-table-body" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; border: 1px solid #eee; border-top: none;"></div>
+                
+                <div style="display: flex; justify-content: space-between; padding: 12px 10px 5px 10px; font-weight: bold; color: red; font-size: 1.2rem; border-top: 2px dashed #ccc; margin-top: 10px;">
+                    <span>Tổng tiền két:</span><span id="tm-grand-total">0 đ</span>
+                </div>
+                
+                <button id="tm-btn-save-log" style="width: 100%; padding: 12px; border: none; border-radius: 6px; background-color: #28a745; color: white; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 10px; transition: 0.2s; box-shadow: 0 4px 6px rgba(40,167,69,0.3);">CHỐT CA MÁY NÀY</button>
             </div>
         </div>
     `;
@@ -911,81 +1020,143 @@
 
     const tmDenominations = [500000, 200000, 100000, 50000, 20000, 10000, 5000, 2000, 1000, 500];
     let tmRowsData = tmDenominations.map(val => ({ price: val, qty: 0, total: 0 }));
-    let tmSelectedIndex = 0, tmCurrentInput = "";
     const tmFormatMoney = (num) => num ? num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "0";
 
-    const tmRenderTable = () => {
-        const tbody = document.getElementById("tm-table-body"); tbody.innerHTML = ""; let grandTotal = 0;
-        tmRowsData.forEach((row, index) => {
-            grandTotal += row.total;
-            const tr = document.createElement("div");
-            tr.style.display = "flex"; tr.style.padding = "10px"; tr.style.borderBottom = "1px solid #eee"; tr.style.cursor = "pointer";
-            if (index === tmSelectedIndex) { tr.style.backgroundColor = "#e0f0ff"; tr.style.borderLeft = "4px solid #0b5aa6"; }
-            tr.onclick = () => { tmSelectedIndex = index; tmCurrentInput = tmRowsData[index].qty === 0 ? "" : tmRowsData[index].qty.toString(); document.getElementById("tm-numpad-input").value = tmCurrentInput; tmRenderTable(); };
-            tr.innerHTML = `<div style="flex: 1; text-align: left; font-weight: 500; padding-left: 10px;">${tmFormatMoney(row.price)}</div><div style="flex: 1; text-align: center; font-weight: 500;">${row.qty}</div><div style="flex: 1; text-align: right; font-weight: 500; padding-right: 10px;">${tmFormatMoney(row.total)}</div>`;
-            tbody.appendChild(tr);
-        });
+    // Hàm cập nhật số lượng khi gõ bàn phím (Được gọi mỗi khi gõ phím vào ô Input)
+    window.updateTmQty = function(index, inputElem) {
+        let qty = parseInt(inputElem.value);
+        if (isNaN(qty) || qty < 0) qty = 0;
+        
+        tmRowsData[index].qty = qty;
+        tmRowsData[index].total = tmRowsData[index].price * qty;
+        
+        // Chỉ cập nhật text Thành tiền của dòng đó (Không render lại toàn bộ bảng để tránh làm mất focus con trỏ chuột)
+        document.getElementById(`tm-row-total-${index}`).innerText = tmFormatMoney(tmRowsData[index].total);
+        
+        // Cập nhật lại Tổng tiền két
+        const grandTotal = tmRowsData.reduce((sum, row) => sum + row.total, 0);
         document.getElementById("tm-grand-total").innerText = `${tmFormatMoney(grandTotal)} đ`;
     };
 
-    document.querySelectorAll('.tm-num-btn').forEach(btn => {
-        btn.onclick = () => {
-            const action = btn.getAttribute('data-val');
-            if (action === "clear") tmCurrentInput = "";
-            else if (action === "backspace") tmCurrentInput = tmCurrentInput.slice(0, -1);
-            else if (action === "enter") {
-                let qty = parseInt(tmCurrentInput); if (isNaN(qty)) qty = 0;
-                tmRowsData[tmSelectedIndex].qty = qty; tmRowsData[tmSelectedIndex].total = tmRowsData[tmSelectedIndex].price * qty;
-                if (tmSelectedIndex < tmRowsData.length - 1) { tmSelectedIndex++; tmCurrentInput = tmRowsData[tmSelectedIndex].qty === 0 ? "" : tmRowsData[tmSelectedIndex].qty.toString(); } 
-                else tmCurrentInput = "";
-            } else tmCurrentInput += action;
-            document.getElementById("tm-numpad-input").value = tmCurrentInput; tmRenderTable();
-        };
-    });
+    const tmRenderTable = () => {
+        const tbody = document.getElementById("tm-table-body"); 
+        tbody.innerHTML = ""; 
+        let grandTotal = 0;
 
-    async function fetchCaGanNhat() {
-        try {
-            document.getElementById('tm-expected-total').innerText = 'Đang tải...';
-            const activeMayPos = parseInt(sessionStorage.getItem('currentMayPos')) || 1;
+        tmRowsData.forEach((row, index) => {
+            grandTotal += row.total;
+            const tr = document.createElement("div");
+            // ĐÃ SỬA: Giảm padding của row xuống 6px 10px để thu nhỏ các hàng
+            tr.style.display = "flex"; tr.style.padding = "6px 10px"; tr.style.borderBottom = "1px solid #eee"; tr.style.alignItems = "center";
             
+            // ĐÃ SỬA: Giảm font-size và padding của Input để vừa vặn, không bị chiếm diện tích
+            tr.innerHTML = `
+                <div style="flex: 1; text-align: left; font-weight: bold; padding-left: 10px; color: #333; font-size: 0.95rem;">${tmFormatMoney(row.price)}</div>
+                <div style="flex: 1; text-align: center;">
+                    <input type="number" min="0" value="${row.qty === 0 ? '' : row.qty}" placeholder="0" 
+                           oninput="updateTmQty(${index}, this)" 
+                           style="width: 60px; padding: 4px; text-align: center; border: 2px solid #ccc; border-radius: 4px; font-size: 1rem; font-weight: bold; outline: none; transition: 0.2s;"
+                           onfocus="this.style.borderColor='#0b5aa6'; this.style.backgroundColor='#eaf1f7';" 
+                           onblur="this.style.borderColor='#ccc'; this.style.backgroundColor='white';">
+                </div>
+                <div style="flex: 1; text-align: right; font-weight: bold; color: #0b5aa6; font-size: 0.95rem; padding-right: 10px;" id="tm-row-total-${index}">${tmFormatMoney(row.total)}</div>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        document.getElementById("tm-grand-total").innerText = `${tmFormatMoney(grandTotal)} đ`;
+    };
+
+    // HÀM FETCH LOGS CHUẨN XÁC THEO MÁY POS CHO QUẢN LÝ
+    async function fetchLogsForManager() {
+        try {
+            const activeMayPos = document.getElementById('tm-maypos-select').value;
+            const logcontainer = document.getElementById("tm-log-container");
+            logcontainer.innerHTML = "<p style='text-align:center; padding: 20px; color:#555;'>Đang tải dữ liệu...</p>";
+
             const res = await fetch(`${API_BASE}/ketca/logs-today?mayPos=${activeMayPos}`, {
                 method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
             
             if (res.ok) {
-                const logs = await res.json();
-                if (logs.length > 0) {
-                    logs.sort((a, b) => a.id - b.id);
-                    const currentShift = logs[logs.length - 1];
-                    
-                    if (currentShift.ketthuc === null) {
-                        const tienmatBandau = parseInt(currentShift.tienmatBandau) || 0;
-                        const heThong = parseInt(currentShift.tongDoanhthu) || 0;
-                        const tienNganhang = parseInt(currentShift.tienNganhang) || 0;
-                        const tienMatThuTrongCa = currentShift.tienMat !== undefined ? parseInt(currentShift.tienMat) : (heThong - tienNganhang);
-                        const canNop = tienmatBandau + tienMatThuTrongCa;
-                        
-                        document.getElementById('tm-expected-total').innerText = tmFormatMoney(canNop) + ' đ';
-                    } else {
-                        document.getElementById('tm-expected-total').innerText = tmFormatMoney(currentShift.tienmatKetca || 0) + ' đ';
-                    }
-                } else {
-                    document.getElementById('tm-expected-total').innerText = '0 đ';
+                let dbData = await res.json();
+                logcontainer.innerHTML = "";
+                
+                if(dbData.length === 0) {
+                    logcontainer.innerHTML = "<p style='text-align:center; padding: 20px; color:#555;'>Không có ca làm việc nào trên máy này hôm nay.</p>";
+                    return;
                 }
+
+                dbData.sort((a, b) => a.id - b.id);
+
+                dbData.forEach((log, index) => {
+                    const dateObj = new Date(log.batdau);
+                    const dateStr = dateObj.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+                    
+                    const tienmatBandau = parseInt(log.tienmatBandau) || 0;
+                    const heThong = parseInt(log.tongDoanhthu) || 0;
+                    const tienNganhang = parseInt(log.tienNganhang) || 0;
+                    const tienMatThuTrongCa = log.tienMat !== undefined ? parseInt(log.tienMat) : (heThong - tienNganhang);
+                    const canNop = tienmatBandau + tienMatThuTrongCa;
+                    
+                    let thucTeText, chenhLechText, deviationStyle, headerActionHtml;
+
+                    if (log.ketthuc === null) {
+                        thucTeText = "<span style='color:#777; font-style:italic;'>Chưa chốt</span>";
+                        chenhLechText = "<span style='color:#777; font-style:italic;'>Chưa chốt</span>";
+                        deviationStyle = ""; 
+                        headerActionHtml = `<span style="color:#e67e22; font-weight:bold; font-size:12px; padding: 4px 8px; background: #fff3cd; border-radius: 4px;">Đang diễn ra</span>`;
+                    } else {
+                        const thucTe = parseInt(log.tienmatKetca) || 0;
+                        const chenhLech = thucTe - canNop;
+                        thucTeText = tmFormatMoney(thucTe) + " đ";
+                        chenhLechText = tmFormatMoney(chenhLech) + " đ";
+                        deviationStyle = chenhLech < 0 ? "color:red; font-weight:bold;" : "color:#1a9e2a; font-weight:bold;";
+                        headerActionHtml = `<span style="color:#1a9e2a; font-weight:bold; font-size:12px; padding: 4px 8px; background: #d4edda; border-radius: 4px;">Đã kết thúc</span>`;
+                    }
+
+                    const item = document.createElement("div");
+                    item.className = "tm-log-item";
+                    item.innerHTML = `
+                        <div class="tm-log-index">${index + 1}</div>
+                        <div class="tm-log-content">
+                           <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid #ccc; padding-bottom: 5px;">
+                               <span style="font-weight: bold; color: #333;">${dateStr}</span>
+                               ${headerActionHtml}
+                           </div>
+                           <div style="font-weight: bold; color: #0b5aa6; margin-top: 8px;">Nhân viên: ${log.nhanVien ? log.nhanVien.hoten : "N/A"}</div>
+                           <div class="tm-log-detail">
+                              <span style="color:#555">1. Tiền mặt đầu ca: ${tmFormatMoney(tienmatBandau)} đ</span>
+                              <span style="color:#555">2. Tổng doanh thu: ${tmFormatMoney(heThong)} đ</span>
+                              <span style="color:#555">3. Ngân hàng: ${tmFormatMoney(tienNganhang)} đ</span>
+                              <span style="color:#555">4. Tiền mặt trong ca (2 - 3): ${tmFormatMoney(tienMatThuTrongCa)} đ</span>
+                              <span style="color:#0b5aa6; font-weight:bold; margin-top:4px;">5. CẦN NỘP (1 + 4): ${tmFormatMoney(canNop)} đ</span>
+                              <span style="color:#1a9e2a; font-weight:bold; margin-top:4px;">6. Thực tế kiểm đếm: ${thucTeText}</span>
+                              <span style="${deviationStyle}">7. Chênh lệch (6 - 5): ${chenhLechText}</span>
+                           </div>
+                        </div>
+                    `;
+                    logcontainer.appendChild(item);
+                });
+                
+                // Tự động cuộn xuống dòng cuối cùng để Quản lý thấy ngay ca mới nhất
+                logcontainer.scrollTop = logcontainer.scrollHeight;
             }
         } catch (e) { 
-            document.getElementById('tm-expected-total').innerText = 'Lỗi lấy dữ liệu'; 
+            document.getElementById('tm-log-container').innerHTML = "<p style='color:red; text-align:center;'>Lỗi kết nối API!</p>"; 
         }
     }
+
+    // Gắn sự kiện: Khi đổi Máy POS ở Dropdown thì fetch lại log của máy đó
+    document.getElementById('tm-maypos-select').onchange = fetchLogsForManager;
 
     document.getElementById("tm-btn-save-log").onclick = async function() {
         const quanLyId = parseInt(sessionStorage.getItem('currentQuanLyId'));
         if (!quanLyId) return alert("Không tìm thấy ID Quản lý!");
         
-        const activeMayPos = parseInt(sessionStorage.getItem('currentMayPos')) || 1;
+        // Lấy số máy POS đang chọn trên giao diện Dropdown
+        const activeMayPos = parseInt(document.getElementById('tm-maypos-select').value);
         const totalCashCounted = tmRowsData.reduce((sum, row) => sum + row.total, 0);
 
         try {
@@ -999,22 +1170,20 @@
                     nhanVienId: quanLyId, 
                     tienmat: totalCashCounted, 
                     quanly: true, 
-                    mayPos: activeMayPos 
+                    mayPos: activeMayPos // Gửi chính xác máy POS cần chốt ca
                 })
             });
             
             if (res.ok) { 
-                alert("Cập nhật thành công!"); 
+                alert(`Đã chốt ca thành công cho Máy POS ${activeMayPos}!`); 
                 tmRowsData = tmDenominations.map(val => ({ price: val, qty: 0, total: 0 })); 
-                tmSelectedIndex = 0; 
-                tmCurrentInput = ""; 
                 tmRenderTable(); 
-                fetchCaGanNhat();
+                fetchLogsForManager(); // Tải lại danh sách
             } else {
-                alert("Lỗi " + res.status);
+                alert("Máy chủ báo lỗi hoặc không có ca nào đang mở trên máy này!");
             }
         } catch(e) { 
-            alert("Lỗi mạng!"); 
+            alert("Lỗi mạng khi chốt ca!"); 
         }
     };
     
@@ -1041,7 +1210,8 @@
                 fetchThongKe();
             } else if (currentTab === 'tm') {
                 document.getElementById('cash-view').style.display = 'flex';
-                fetchCaGanNhat(); 
+                // ĐÃ SỬA: Gọi hàm fetch hiển thị theo máy POS cho quản lý
+                fetchLogsForManager(); 
             } else {
                 document.getElementById('table-view').style.display = 'block';
                 fabBtn.style.display = 'flex';

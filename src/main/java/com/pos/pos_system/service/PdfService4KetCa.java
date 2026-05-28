@@ -22,6 +22,8 @@ public class PdfService4KetCa {
 
         document.add(new Paragraph("\n"));
         document.add(new Paragraph("Ma ca: " + shift.getId()));
+        String maypos = shift.getMayPos() != null ? String.valueOf(shift.getMayPos()) : "N/A";
+        document.add(new Paragraph("May POS: " + maypos));
         
         // Chống Null cho thông tin nhân viên và thời gian
         String tenNhanVien = shift.getNhanVien() != null ? shift.getNhanVien().getHoten() : "N/A";
@@ -51,7 +53,7 @@ public class PdfService4KetCa {
         
         table.addCell("Doanh thu he thong"); table.addCell(String.format("%,.0f", doanhThu));
         table.addCell("Tien ngan hang"); table.addCell(String.format("%,.0f", nganHang));
-        table.addCell("Tien mat moi ca truoc"); table.addCell(String.format("%,.0f", tienmatBandau));
+        table.addCell("Tien mat dau ca"); table.addCell(String.format("%,.0f", tienmatBandau));
         table.addCell("Tien mat can nop"); table.addCell(String.format("%,.0f", canNop));
         table.addCell("Thuc te kiem ke"); table.addCell(String.format("%,.0f", tienmatKetca));
         table.addCell("Chenh lech"); table.addCell(String.format("%,.0f", chenhLech));

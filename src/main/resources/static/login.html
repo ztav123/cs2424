@@ -564,7 +564,7 @@
                 return;
             }
             sessionStorage.setItem('currentMayPos', getMayPos);
-            let url = `http://localhost:8080/api/auth/login?id=${getid}&password=${encodeURIComponent(getpass)}&createShift=true&maypos=${getMayPos}`;
+            let url = `http://localhost:8080/api/auth/login?id=${getid}&password=${encodeURIComponent(getpass)}&createShift=true&mayPos=${getMayPos}`;
             const response = await fetch(url, { method: 'POST' });
             
             if (response.ok) {
@@ -710,38 +710,41 @@
 
     async function downloadLatestPdf(nhanVienId) {
         try {
-            // Sử dụng token mới của người vừa đăng nhập để fetch danh sách, 
-            // hoặc fallback về token cũ nếu token mới chưa lưu
             const token = sessionStorage.getItem('accessToken');
-            const response = await fetch('http://localhost:8080/api/ketca/logs-today', {
+            
+            // ĐÃ SỬA: Lấy số máy POS hiện tại từ sessionStorage (mặc định là 1 nếu trống)
+            const currentMayPos = sessionStorage.getItem('currentMayPos') || 1;
+            
+            // ĐÃ SỬA: Truyền tham số mayPos lên URL để Backend lọc đúng máy
+            const url = `http://localhost:8080/api/ketca/logs-today?mayPos=${currentMayPos}`;
+            
+            const response = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             
             if (!response.ok) throw new Error('Không thể tải danh sách ca làm việc.');
             const logs = await response.json();
 
-            // ĐÃ SỬA: Lọc ca làm việc đã kết thúc VÀ phải thuộc về ĐÚNG nhân viên đã kết ca
+            // Lọc ca làm việc đã kết thúc và thuộc về đúng nhân viên vừa kết ca
             const finishedLogs = logs.filter(log => {
                 const isFinished = log.ketthuc !== null;
-                
-                // Trích xuất ID nhân viên an toàn từ object nhanVien của bản ghi DB
                 const logNhanVienId = log.nhanVien ? log.nhanVien.id : null; 
                 
                 if (nhanVienId) {
                     return isFinished && logNhanVienId === parseInt(nhanVienId);
                 }
-                return isFinished; // Fallback nếu không truyền nhanVienId thì lấy ca bất kỳ đã kết thúc
+                return isFinished; 
             });
 
             if (finishedLogs.length === 0) {
-                return alert('Chưa có ca làm nào của nhân viên này được kết thúc trên hệ thống hôm nay!');
+                return alert('Chưa có ca làm nào của nhân viên này được kết thúc trên hệ thống máy POS này hôm nay!');
             }
 
-            // Sắp xếp thời gian kết thúc mới nhất lên đầu để lấy đúng ca vừa bấm
+            // Sắp xếp thời gian kết thúc mới nhất lên đầu để lấy đúng ca vừa chốt xong
             finishedLogs.sort((a, b) => new Date(b.ketthuc) - new Date(a.ketthuc));
             const latestId = finishedLogs[0].id;
 
-            // Gọi hàm downloadPdf xuất file trực tiếp qua JavaBridge/Browser
+            // Gọi hàm downloadPdf xuất file trực tiếp
             await downloadPdf(latestId); 
 
         } catch (error) {

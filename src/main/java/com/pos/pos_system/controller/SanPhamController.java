@@ -18,7 +18,7 @@ public class SanPhamController {
     // API mới dành riêng cho trang bán hàng (orderPage.html)
     @GetMapping("/active")
     public List<SanPham> getAllActive() {
-        return sanPhamRepo.findByIsDeleted(0);
+        return sanPhamRepo.findByIsDeletedOrderByidAsc(0);
     }
 
     // Giữ nguyên API cũ cho trang Quản lý (TienIchQuanLy.html)

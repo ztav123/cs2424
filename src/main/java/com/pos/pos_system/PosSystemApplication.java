@@ -33,17 +33,17 @@ public class PosSystemApplication extends Application {
 
     private ConfigurableApplicationContext springContext;
     
-    // Khai báo 2 cổng bạn muốn test
     private static final String DEFAULT_PORT = "8080";
     private static final String BACKUP_PORT = "8082";
     
-    // Biến lưu trữ cổng thực tế sau khi quét hệ thống
     private static String selectedPort = DEFAULT_PORT;
     private static String baseUrl = "http://localhost:" + DEFAULT_PORT;
 
+    // CHÌA KHÓA VÀNG: Tạo duy nhất một thực thể JavaBridge dùng chung (Singleton) cho mọi cửa sổ
+    private static final JavaBridge SHARED_BRIDGE = new JavaBridge();
+
     @Override
     public void init() throws Exception {
-        // TỰ ĐỘNG CHECK CỔNG KHI APP VỪA KHỞI CHẠY
         if (isPortAvailable(Integer.parseInt(DEFAULT_PORT))) {
             selectedPort = DEFAULT_PORT;
             System.out.println("✅ Cổng 8080 trống! Hệ thống sẽ chạy trên cổng mặc định: 8080");
@@ -54,30 +54,22 @@ public class PosSystemApplication extends Application {
         baseUrl = "http://localhost:" + selectedPort;
     }
 
-    /**
-     * Hàm kiểm tra xem một Port có đang sẵn sàng (trống) hay không
-     */
     private boolean isPortAvailable(int port) {
         try (ServerSocket serverSocket = new ServerSocket(port)) {
-            // Nếu tạo được ServerSocket thành công nghĩa là cổng này đang hoàn toàn trống
             serverSocket.setReuseAddress(true);
             return true;
         } catch (IOException e) {
-            // Nếu quăng ra lỗi IOException nghĩa là cổng đang bị một app khác chiếm (In use)
             return false;
         }
     }
 
     @Override
     public void start(Stage primaryStage) {
-        // 1. Hiển thị ngay cửa sổ giao diện chính
         openNewWindow(primaryStage, "Hệ Thống POS - Màn Hình Kiểm Thử Đồ Án", true);
 
-        // 2. Chạy Spring Boot ngầm với cổng đã được tự động lựa chọn
         Thread springThread = new Thread(() -> {
             try {
                 List<String> argsList = new ArrayList<>(getParameters().getRaw());
-                // Ép Spring Boot chạy đúng cổng đã check được ở bước init
                 argsList.add("--server.port=" + selectedPort);
                 String[] args = argsList.toArray(new String[0]);
 
@@ -97,7 +89,7 @@ public class PosSystemApplication extends Application {
     }
 
     /**
-     * Hàm xử lý đa cửa sổ JavaFX
+     * Hàm xử lý đa cửa sổ JavaFX - Đã sửa lỗi mất kết nối window.app khi mở nhiều cửa sổ
      */
     public void openNewWindow(Stage stage, String title, boolean isMainWindow) {
         Platform.runLater(() -> {
@@ -117,14 +109,15 @@ public class PosSystemApplication extends Application {
                 alert.showAndWait();
             });
 
+            // ĐÃ SỬA: Ép tất cả các WebEngine độc lập cùng trỏ chung vào thực thể SHARED_BRIDGE duy nhất
             webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
                 if (newState == Worker.State.SUCCEEDED) {
                     JSObject window = (JSObject) webEngine.executeScript("window");
-                    window.setMember("app", new JavaBridge());
+                    window.setMember("app", SHARED_BRIDGE); 
+                    System.out.println("✅ Đã đồng bộ thành công cấu trúc window.app dùng chung cho cửa sổ này!");
                 }
             });
 
-            // Màn hình chờ hiển thị thông tin cổng đang kết nối thực tế
             if (isMainWindow && springContext == null) {
                 webEngine.loadContent(
                     "<html><body style='background:#2c3338; color:white; font-family:Arial; text-align:center; padding-top:200px;'>" +
@@ -163,12 +156,13 @@ public class PosSystemApplication extends Application {
         System.exit(0);
     }
 
-    public class JavaBridge {
+    // ĐÃ SỬA: Giữ nguyên lớp cấu trúc JavaBridge và chuyển lên cấp static nếu cần thiết, đảm bảo thread-safe
+    public static class JavaBridge {
         public void downloadPdf(String endpoint, String token, String filename) {
             new Thread(() -> {
                 HttpURLConnection httpConn = null;
                 try {
-                    URL url = new URL( endpoint);
+                    URL url = new URL(endpoint);
                     httpConn = (HttpURLConnection) url.openConnection();
                     httpConn.setRequestMethod("GET");
                     
@@ -178,15 +172,12 @@ public class PosSystemApplication extends Application {
                     
                     int responseCode = httpConn.getResponseCode();
                     if (responseCode == HttpURLConnection.HTTP_OK) {
-                        
-                        // YÊU CẦU: Mặc định lưu toàn bộ vào thư mục C:/POS_pdf độc lập
                         File targetDir = new File("C:/POS_pdf");
                         if (!targetDir.exists()) {
-                            targetDir.mkdirs(); // Tự động tạo thư mục nếu chưa có
+                            targetDir.mkdirs();
                         }
                         File saveFile = new File(targetDir, filename);
                         
-                        // Sử dụng try-with-resources để tự động giải phóng và đóng file ngay khi ghi xong
                         try (InputStream inputStream = httpConn.getInputStream();
                              FileOutputStream outputStream = new FileOutputStream(saveFile)) {
                             
@@ -195,10 +186,9 @@ public class PosSystemApplication extends Application {
                             while ((bytesRead = inputStream.read(buffer)) != -1) {
                                 outputStream.write(buffer, 0, bytesRead);
                             }
-                            outputStream.flush(); // Ép xả hết dữ liệu nhị phân xuống đĩa cứng
+                            outputStream.flush();
                         }
                         
-                        // Thông báo và mở file trên luồng đồ họa JavaFX
                         Platform.runLater(() -> {
                             try {
                                 java.awt.Desktop.getDesktop().open(saveFile);
@@ -228,7 +218,6 @@ public class PosSystemApplication extends Application {
                         alert.showAndWait();
                     });
                 } finally {
-                    // ĐÓNG CƯỠNG BỨC KẾT NỐI MẠNG để giải phóng tài nguyên cho lần bấm tiếp theo
                     if (httpConn != null) {
                         httpConn.disconnect();
                     }

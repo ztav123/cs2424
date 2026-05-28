@@ -3,6 +3,7 @@ package com.pos.pos_system.repository;
 import com.pos.pos_system.entity.HoaDon;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.query.Procedure;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -11,6 +12,11 @@ import java.util.List;
 
 @Repository
 public interface HoaDonRepository extends JpaRepository<HoaDon, String> {
+    @Procedure(procedureName = "PROC_CAP_NHAT_TRANG_THAI_HD")
+    void capNhatTrangThaiAnToan(@Param("p_hoadon_id") String hoadonId, 
+                                @Param("p_trangthai_cu") String trangThaiCu, 
+                                @Param("p_trangthai_moi") String trangThaiMoi,
+                                @Param("p_so_dong_cap_nhat") Integer[] soDong);
     // Lọc theo cả nhân viên và khoảng thời gian
     List<HoaDon> findByNhanVienIdAndNgaylapBetween(Integer nhanVienId, LocalDateTime start, LocalDateTime end);
     

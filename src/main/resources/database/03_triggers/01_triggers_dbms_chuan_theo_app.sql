@@ -169,21 +169,26 @@ DECLARE
     v_calam_id CALAM.id%TYPE;
 BEGIN
     IF :NEW.calam_id IS NULL THEN
-        BEGIN
-            SELECT id
-            INTO v_calam_id
-            FROM CALAM
-            WHERE nhanvien_id = :NEW.nhanvien_id
-              AND ketthuc IS NULL
-            ORDER BY id DESC
-            FETCH FIRST 1 ROWS ONLY
-            FOR UPDATE WAIT 3;
+        -- BƯỚC 1: Tìm ID ca làm đang mở mới nhất (Dùng MAX thay vì ORDER BY để tránh lỗi ORA-02014)
+        SELECT MAX(id)
+        INTO v_calam_id
+        FROM CALAM
+        WHERE nhanvien_id = :NEW.nhanvien_id
+          AND ketthuc IS NULL;
 
-            :NEW.calam_id := v_calam_id;
-        EXCEPTION
-            WHEN NO_DATA_FOUND THEN
-                RAISE_APPLICATION_ERROR(-20010, 'Nhan vien chua co ca lam dang mo. Khong the tao hoa don.');
-        END;
+        -- Kiểm tra nếu biến v_calam_id trả về rỗng (nhân viên chưa mở ca)
+        IF v_calam_id IS NULL THEN
+            RAISE_APPLICATION_ERROR(-20010, 'Nhân viên chưa có ca làm đang mở. Không thể tạo hóa đơn.');
+        END IF;
+
+        -- BƯỚC 2: Thực hiện Lock độc quyền đúng 1 dòng Ca Làm đó thông qua Primary Key
+        SELECT id
+        INTO v_calam_id
+        FROM CALAM
+        WHERE id = v_calam_id
+        FOR UPDATE WAIT 3;
+
+        :NEW.calam_id := v_calam_id;
     END IF;
 END;
 /
